@@ -1,0 +1,133 @@
+{
+  "name": "00 - GrowthOS Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-760, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "run-id",
+              "name": "orchestrator_run_id",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "source",
+              "name": "source",
+              "value": "growthos-orchestrator",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "run-context",
+      "name": "Create Run Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-540, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-active-agents",
+      "name": "Get Active Agents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-300, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst rows = items.flatMap(item => Array.isArray(item.json) ? item.json : [item.json]);\n\nfunction due(agent) {\n  if (agent.next_run_at) return new Date(agent.next_run_at) <= now;\n  if (!agent.last_run_at) return true;\n  const last = new Date(agent.last_run_at);\n  const ageMinutes = (now - last) / 60000;\n  switch (agent.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\n\nreturn rows.filter(due).map(agent => ({ json: { ...agent, dispatch_requested_at: now.toISOString() } }));"
+      },
+      "id": "filter-due-agents",
+      "name": "Filter Due Agents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-60, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dispatch-status",
+              "name": "dispatch_status",
+              "value": "ready",
+              "type": "string"
+            },
+            {
+              "id": "dispatch-note",
+              "name": "dispatch_note",
+              "value": "Connect this item to an Execute Workflow node mapped by agent slug after the individual agent workflows are imported.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dispatch-contract",
+      "name": "Dispatch Contract",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [180, 0]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [[{"node": "Create Run Context", "type": "main", "index": 0}]]
+    },
+    "Create Run Context": {
+      "main": [[{"node": "Get Active Agents", "type": "main", "index": 0}]]
+    },
+    "Get Active Agents": {
+      "main": [[{"node": "Filter Due Agents", "type": "main", "index": 0}]]
+    },
+    "Filter Due Agents": {
+      "main": [[{"node": "Dispatch Contract", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "00000000-0000-4000-8000-000000000000",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
