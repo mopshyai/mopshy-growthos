@@ -1,0 +1,81 @@
+{
+  "name": "99 - GrowthOS Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-520, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $json;\nconst execution = e.execution || {};\nconst workflow = e.workflow || {};\nreturn [{ json: {\n  event_type: 'workflow_error',\n  severity: 'critical',\n  source: workflow.name || 'unknown-workflow',\n  payload: {\n    workflow_id: workflow.id || null,\n    execution_id: execution.id || null,\n    execution_url: execution.url || null,\n    error_message: execution.error?.message || e.message || 'Unknown n8n workflow error',\n    error_stack: execution.error?.stack || null,\n    occurred_at: new Date().toISOString()\n  }\n} }];"
+      },
+      "id": "normalize-error",
+      "name": "Normalize Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/system_events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "log-error",
+      "name": "Log System Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-40, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "telegram-message",
+              "name": "telegram_message",
+              "value": "={{ '🚨 GrowthOS workflow failure\\nWorkflow: ' + $('Normalize Error').item.json.source + '\\nError: ' + $('Normalize Error').item.json.payload.error_message + '\\nExecution: ' + ($('Normalize Error').item.json.payload.execution_url || 'n/a') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-alert",
+      "name": "Prepare Telegram Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [200, 0]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {"main": [[{"node": "Normalize Error", "type": "main", "index": 0}]]},
+    "Normalize Error": {"main": [[{"node": "Log System Event", "type": "main", "index": 0}]]},
+    "Log System Event": {"main": [[{"node": "Prepare Telegram Alert", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "00000000-0000-4000-8000-000000000099",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}
