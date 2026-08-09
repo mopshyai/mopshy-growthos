@@ -1,0 +1,17 @@
+[
+  {"id":1,"slug":"seo-intelligence","name":"SEO Intelligence","autonomy":"green","schedule":"daily"},
+  {"id":2,"slug":"search-opportunity","name":"Search Opportunity","autonomy":"green","schedule":"daily"},
+  {"id":3,"slug":"content-research","name":"Content Research","autonomy":"green","schedule":"daily"},
+  {"id":4,"slug":"content-production","name":"Content Production","autonomy":"yellow","schedule":"on-demand"},
+  {"id":5,"slug":"internal-linking","name":"Internal Linking","autonomy":"yellow","schedule":"daily"},
+  {"id":6,"slug":"technical-seo","name":"Technical SEO","autonomy":"yellow","schedule":"daily"},
+  {"id":7,"slug":"citation-engine","name":"Citation Engine","autonomy":"yellow","schedule":"daily"},
+  {"id":8,"slug":"backlink-intelligence","name":"Backlink Intelligence","autonomy":"green","schedule":"weekly"},
+  {"id":9,"slug":"founder-content","name":"Founder Content","autonomy":"yellow","schedule":"daily"},
+  {"id":10,"slug":"social-distribution","name":"Social Distribution","autonomy":"yellow","schedule":"daily"},
+  {"id":11,"slug":"cro-intelligence","name":"CRO Intelligence","autonomy":"yellow","schedule":"daily"},
+  {"id":12,"slug":"competitor-intelligence","name":"Competitor Intelligence","autonomy":"green","schedule":"daily"},
+  {"id":13,"slug":"reputation-intelligence","name":"Reputation Intelligence","autonomy":"green","schedule":"hourly"},
+  {"id":14,"slug":"lead-intent","name":"Lead Intent","autonomy":"green","schedule":"hourly"},
+  {"id":15,"slug":"growth-director","name":"Growth Director","autonomy":"green","schedule":"daily"}
+]
