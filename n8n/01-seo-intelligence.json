@@ -1,5 +1,5 @@
 {
-  "name": "01 - SEO Intelligence",
+  "name": "01 - SEO Intelligence v2",
   "nodes": [
     {
       "parameters": {},
@@ -7,15 +7,15 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-820, 0]
+      "position": [-1080, 0]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {"name": "agent_slug", "value": "seo-intelligence"},
-            {"name": "site_url", "value": "https://mopshy.com/"},
-            {"name": "run_mode", "value": "manual"}
+        "assignments": {
+          "assignments": [
+            {"id": "agent-slug", "name": "agent_slug", "value": "seo-intelligence", "type": "string"},
+            {"id": "site-url", "name": "site_url", "value": "https://mopshy.com/", "type": "string"},
+            {"id": "run-mode", "name": "run_mode", "value": "manual", "type": "string"}
           ]
         },
         "options": {}
@@ -23,18 +23,41 @@
       "id": "run-config",
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-860, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agents?slug=eq.seo-intelligence&select=id,name,slug,autonomy,schedule&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "get-seo-agent",
+      "name": "Get SEO Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-620, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('SEO Intelligence agent was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "id": "validate-agent",
+      "name": "Validate SEO Agent",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-600, 0]
+      "position": [-380, 0]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.SUPABASE_URL + '/rest/v1/agent_runs'}}",
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agent_runs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"},
-            {"name": "Authorization", "value": "={{'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY}}"},
             {"name": "Content-Type", "value": "application/json"},
             {"name": "Prefer", "value": "return=representation"}
           ]
@@ -42,40 +65,122 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ status: 'running', input: { site_url: $('Run Config').item.json.site_url, run_mode: $('Run Config').item.json.run_mode } }) }}",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate SEO Agent').item.json.id, status: 'running', input: { agent_slug: $('Run Config').item.json.agent_slug, site_url: $('Run Config').item.json.site_url, run_mode: $('Run Config').item.json.run_mode } }) }}",
         "options": {}
       },
       "id": "create-run",
       "name": "Create Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-360, 0]
+      "position": [-140, 0]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {"name": "status", "value": "scaffold_ready"},
-            {"name": "next_step", "value": "Connect Google Search Console and GA4 credentials, then replace this node with live data retrieval and scoring."}
+        "assignments": {
+          "assignments": [
+            {"id": "stage-status", "name": "seo_stage_status", "value": "ready_for_google_data", "type": "string"},
+            {"id": "stage-message", "name": "message", "value": "Agent identity and run logging are working. Next: connect Google Search Console and GA4, then replace this node with live SEO data retrieval and scoring.", "type": "string"},
+            {"id": "run-id", "name": "agent_run_id", "value": "={{ $json.id }}", "type": "string"},
+            {"id": "agent-id", "name": "agent_id", "value": "={{ $('Validate SEO Agent').item.json.id }}", "type": "string"}
           ]
         },
         "options": {}
       },
-      "id": "placeholder",
-      "name": "SEO Data Placeholder",
+      "id": "seo-stage",
+      "name": "SEO Stage Ready",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 2,
-      "position": [-100, 0]
+      "typeVersion": 3.4,
+      "position": [100, 0]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agent_runs?id=eq.' + $('SEO Stage Ready').item.json.agent_run_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { stage: $('SEO Stage Ready').item.json.seo_stage_status, message: $('SEO Stage Ready').item.json.message } }) }}",
+        "options": {}
+      },
+      "id": "complete-run",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [340, 0]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agents?id=eq.' + $('SEO Stage Ready').item.json.agent_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}",
+        "options": {}
+      },
+      "id": "update-agent",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [580, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "result", "name": "result", "value": "SEO Intelligence v2 foundation completed successfully", "type": "string"},
+            {"id": "next", "name": "next_step", "value": "Connect Google Search Console and Google Analytics credentials in n8n MOPSHY GROWTHOS.", "type": "string"},
+            {"id": "site", "name": "site_url", "value": "={{ $('Run Config').item.json.site_url }}", "type": "string"},
+            {"id": "agent", "name": "agent_id", "value": "={{ $('SEO Stage Ready').item.json.agent_id }}", "type": "string"},
+            {"id": "run", "name": "agent_run_id", "value": "={{ $('SEO Stage Ready').item.json.agent_run_id }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "return-summary",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [820, 0]
     }
   ],
   "connections": {
     "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Run Config": {"main": [[{"node": "Create Agent Run", "type": "main", "index": 0}]]},
-    "Create Agent Run": {"main": [[{"node": "SEO Data Placeholder", "type": "main", "index": 0}]]}
+    "Run Config": {"main": [[{"node": "Get SEO Agent", "type": "main", "index": 0}]]},
+    "Get SEO Agent": {"main": [[{"node": "Validate SEO Agent", "type": "main", "index": 0}]]},
+    "Validate SEO Agent": {"main": [[{"node": "Create Agent Run", "type": "main", "index": 0}]]},
+    "Create Agent Run": {"main": [[{"node": "SEO Stage Ready", "type": "main", "index": 0}]]},
+    "SEO Stage Ready": {"main": [[{"node": "Complete Agent Run", "type": "main", "index": 0}]]},
+    "Complete Agent Run": {"main": [[{"node": "Update Agent Last Run", "type": "main", "index": 0}]]},
+    "Update Agent Last Run": {"main": [[{"node": "Return Summary", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
   },
   "active": false,
-  "settings": {"executionOrder": "v1"},
-  "versionId": "11111111-1111-4111-8111-111111111111",
-  "meta": {"templateCredsSetupCompleted": false},
+  "versionId": "22222222-2222-4222-8222-222222222222",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
   "tags": []
 }
