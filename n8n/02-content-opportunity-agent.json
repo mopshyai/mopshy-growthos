@@ -36,15 +36,16 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"},
           {"name": "Content-Type", "value": "application/json"}
         ]},
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: $env.OPENAI_CONTENT_MODEL || 'gpt-5.4', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
         "options": {"timeout": 180000}
       },
       "id": "discover",
