@@ -1,0 +1,104 @@
+{
+  "name": "02 - Autonomous Content Opportunity Agent",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "30 6 * * *"}]}},
+      "id": "daily-trigger",
+      "name": "Daily 6:30 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-980, -100]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-980, 100]
+    },
+    {
+      "parameters": {
+        "assignments": {"assignments": [
+          {"id": "site", "name": "site_url", "value": "https://mopshy.com", "type": "string"},
+          {"id": "minscore", "name": "min_score", "value": 70, "type": "number"},
+          {"id": "date", "name": "run_date", "value": "={{ $now.toISODate() }}", "type": "string"}
+        ]},
+        "options": {}
+      },
+      "id": "config",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-740, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Content-Type", "value": "application/json"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
+        "options": {"timeout": 180000}
+      },
+      "id": "discover",
+      "name": "Research + Score Opportunities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = items[0].json;\nconst text = r.output_text || r.output?.flatMap(o => o.content || []).find(c => c.type === 'output_text')?.text || '';\nlet parsed;\ntry { parsed = JSON.parse(text); } catch (e) { const m = text.match(/\\{[\\s\\S]*\\}/); if (!m) throw new Error('Opportunity agent did not return JSON'); parsed = JSON.parse(m[0]); }\nconst rows = Array.isArray(parsed.candidates) ? parsed.candidates : [];\nreturn rows.map(c => ({ json: { ...c, source_urls: Array.isArray(c.source_urls) ? c.source_urls : [], metadata: { discovered_at: new Date().toISOString(), model: r.model || null } } }));"
+      },
+      "id": "parse",
+      "name": "Parse Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-260, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Content-Type", "value": "application/json"},
+          {"name": "Prefer", "value": "return=representation"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ topic: $json.topic, angle: $json.angle, source_type: $json.source_type, status: 'discovered', opportunity_score: $json.opportunity_score, topical_relevance: $json.topical_relevance, search_intent: $json.search_intent, trend_acceleration: $json.trend_acceleration, commercial_relevance: $json.commercial_relevance, original_insight: $json.original_insight, competition_opportunity: $json.competition_opportunity, ai_citation_potential: $json.ai_citation_potential, cannibalization_risk: $json.cannibalization_risk, recommended_action: $json.recommended_action, target_keyword: $json.target_keyword, search_intent_label: $json.search_intent_label, rationale: $json.rationale, source_urls: $json.source_urls, metadata: $json.metadata }) }}",
+        "options": {}
+      },
+      "id": "store",
+      "name": "Store Opportunities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 0]
+    }
+  ],
+  "connections": {
+    "Daily 6:30 AM MT": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
+    "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
+    "Run Config": {"main": [[{"node": "Research + Score Opportunities", "type": "main", "index": 0}]]},
+    "Research + Score Opportunities": {"main": [[{"node": "Parse Candidates", "type": "main", "index": 0}]]},
+    "Parse Candidates": {"main": [[{"node": "Store Opportunities", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
+  "active": false,
+  "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a001",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}

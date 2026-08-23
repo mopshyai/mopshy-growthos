@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "site": "https://mopshy.com",
+  "targetRepo": "mopshyai/mopshy-ai-growth-engine",
+  "targetBranch": "main",
+  "timezone": "America/Denver",
+  "cadence": {
+    "researchDaily": true,
+    "maxPublishesPerDay": 1,
+    "weeklyRefreshDay": "SUNDAY"
+  },
+  "publishing": {
+    "mode": "pull_request",
+    "autoMergeAfterChecks": false,
+    "minimumOpportunityScore": 82,
+    "minimumQualityScore": 90,
+    "requirePrimarySource": true,
+    "requireAtLeastSources": 3,
+    "requireInternalLinks": 3,
+    "requireCommercialRelevance": true,
+    "rejectIfCannibalizationRiskAbove": 0.65,
+    "rejectIfUnsupportedClaims": true,
+    "rejectIfGenericOrCommodity": true
+  },
+  "opportunityWeights": {
+    "mopshyTopicalRelevance": 20,
+    "searchIntent": 15,
+    "trendAcceleration": 15,
+    "commercialRelevance": 15,
+    "originalInsightAvailable": 15,
+    "competitionOpportunity": 10,
+    "aiCitationPotential": 10
+  },
+  "contentMix": {
+    "evergreenBuyerIntent": 0.5,
+    "trendingFreshness": 0.3,
+    "originalResearch": 0.2
+  },
+  "allowedCategories": [
+    "AI News",
+    "Automation Playbook",
+    "Technical Guide",
+    "Tool Spotlight",
+    "Lead Generation",
+    "Sales",
+    "Operations",
+    "Enterprise AI",
+    "Fundamentals"
+  ],
+  "priorityEntities": [
+    "OpenAI",
+    "Anthropic",
+    "Google Gemini",
+    "n8n",
+    "Make",
+    "HubSpot",
+    "Salesforce",
+    "Microsoft",
+    "Meta",
+    "Zapier"
+  ],
+  "priorityCommercialTopics": [
+    "AI automation agency",
+    "workflow automation",
+    "AI lead generation",
+    "AI receptionist",
+    "sales automation",
+    "CRM automation",
+    "client onboarding automation",
+    "AI agents for operations",
+    "customer support automation",
+    "n8n automation"
+  ],
+  "qualityRules": [
+    "Answer the core query in the opening section.",
+    "Prefer primary sources for product announcements, policies, benchmarks, pricing, and technical claims.",
+    "Never invent statistics, quotes, customer results, dates, or product capabilities.",
+    "Add a distinct Mopshy point of view, implementation pattern, test, framework, or example.",
+    "Do not publish a near-duplicate keyword variation when an existing article can be refreshed instead.",
+    "Every factual claim that may have changed must be source-backed.",
+    "Use descriptive headings that match real user questions.",
+    "Add internal links to a relevant evergreen guide, commercial page, and adjacent article when available.",
+    "Do not keyword-stuff.",
+    "Do not publish solely because a topic is trending."
+  ]
+}
