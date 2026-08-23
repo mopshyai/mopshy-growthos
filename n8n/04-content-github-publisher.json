@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts?status=eq.ready&fact_check_passed=eq.true&quality_score=gte.90&unsupported_claim_count=eq.0&order=created_at.asc&limit=1",
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts?status=eq.ready&fact_check_passed=eq.true&quality_score=gte.90&unsupported_claim_count=eq.0&primary_source_present=eq.true&order=created_at.asc&limit=1",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "supabaseApi",
         "options": {}
@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "if (!items.length || !items[0].json.id) return []; const d=items[0].json; if (!d.fact_check_passed || Number(d.quality_score)<90 || Number(d.unsupported_claim_count)!==0) return []; if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(d.slug||''))) throw new Error('Publisher blocked invalid slug'); if (!Array.isArray(d.body) || d.body.length < 3) throw new Error('Publisher blocked underspecified article body'); return items;"
+        "jsCode": "if (!items.length || !items[0].json.id) return []; const d=items[0].json; if (!d.fact_check_passed || Number(d.quality_score)<90 || Number(d.unsupported_claim_count)!==0 || d.primary_source_present!==true) return []; if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(d.slug||''))) throw new Error('Publisher blocked invalid slug'); if (!Array.isArray(d.body) || d.body.length < 3) throw new Error('Publisher blocked underspecified article body'); const sources=Array.isArray(d.sources)?d.sources.filter(s=>s&&s.url):[]; if(sources.length<3) throw new Error('Publisher requires at least 3 sources'); if(!sources.some(s=>s.primary===true)) throw new Error('Publisher requires at least one primary source'); const internal=Array.isArray(d.internal_links)?d.internal_links.filter(x=>x&&x.url&&String(x.url).startsWith('/')):[]; if(internal.length<3) throw new Error('Publisher requires at least 3 internal links'); return items;"
       },
       "id": "final-gate",
       "name": "Final Safety Gate",
@@ -52,7 +52,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const d=$('Final Safety Gate').item.json; const today=new Date().toISOString().slice(0,10); const internal=(Array.isArray(d.internal_links)?d.internal_links:[]).filter(x=>x&&x.url&&String(x.url).startsWith('/')).map(x=>({label:String(x.label||x.url),url:String(x.url)})); const sources=(Array.isArray(d.sources)?d.sources:[]).filter(s=>s&&s.url).map(s=>({url:String(s.url),publisher:s.publisher?String(s.publisher):undefined,title:s.title?String(s.title):undefined,publishedAt:s.publishedAt?String(s.publishedAt):undefined,claims:Array.isArray(s.claims)?s.claims.map(String):undefined,primary:typeof s.primary==='boolean'?s.primary:undefined})); const article={schemaVersion:1,status:'published',slug:String(d.slug),category:String(d.category),title:String(d.title),excerpt:String(d.excerpt||''),readTime:String(d.read_time||d.readTime||'8 min read'),cover:String(d.cover||'/og-image.png'),publishedAt:today,updatedAt:today,metaTitle:String(d.meta_title||d.metaTitle||d.title),metaDescription:String(d.meta_description||d.metaDescription||d.excerpt||''),keywords:Array.isArray(d.keywords)?d.keywords.map(String):[],body:d.body,faqs:Array.isArray(d.faqs)?d.faqs:[],sources,internalLinks:internal}; if(article.metaDescription.length<50) throw new Error('Publisher blocked meta description under 50 characters'); if(article.keywords.length<1) throw new Error('Publisher blocked article without keywords'); const path=`src/content/blog/articles/${article.slug}.article.json`; const branch=`content/${article.slug}-${today}`; const json=JSON.stringify(article,null,2)+'\\n'; return [{json:{draft:d,article,branch,path,content_b64:Buffer.from(json,'utf8').toString('base64'),main_sha:$('Get Website Main SHA').item.json.object.sha}}];"
+        "jsCode": "const d=$('Final Safety Gate').item.json; const today=new Date().toISOString().slice(0,10); const internal=(Array.isArray(d.internal_links)?d.internal_links:[]).filter(x=>x&&x.url&&String(x.url).startsWith('/')).map(x=>({label:String(x.label||x.url),url:String(x.url)})); const sources=(Array.isArray(d.sources)?d.sources:[]).filter(s=>s&&s.url).map(s=>({url:String(s.url),publisher:s.publisher?String(s.publisher):undefined,title:s.title?String(s.title):undefined,publishedAt:s.publishedAt?String(s.publishedAt):undefined,claims:Array.isArray(s.claims)?s.claims.map(String):undefined,primary:typeof s.primary==='boolean'?s.primary:undefined})); const body=Array.isArray(d.body)?d.body.map(b=>({...b})):[]; const hasRelated=body.some(b=>b&&b.type==='links'&&String(b.title||'').toLowerCase().includes('related')); const hasSources=body.some(b=>b&&b.type==='links'&&String(b.title||'').toLowerCase().includes('source')); if(internal.length&&!hasRelated) body.push({type:'links',title:'Related on Mopshy',items:internal}); if(sources.length&&!hasSources) body.push({type:'links',title:'Sources',items:sources.map(s=>({label:s.title||s.publisher||s.url,url:s.url,source:s.publisher}))}); const article={schemaVersion:1,status:'published',slug:String(d.slug),category:String(d.category),title:String(d.title),excerpt:String(d.excerpt||''),readTime:String(d.read_time||d.readTime||'8 min read'),cover:String(d.cover||'/og-image.png'),publishedAt:today,updatedAt:today,metaTitle:String(d.meta_title||d.metaTitle||d.title),metaDescription:String(d.meta_description||d.metaDescription||d.excerpt||''),keywords:Array.isArray(d.keywords)?d.keywords.map(String):[],body,faqs:Array.isArray(d.faqs)?d.faqs:[],sources,internalLinks:internal}; if(article.metaDescription.length<50) throw new Error('Publisher blocked meta description under 50 characters'); if(article.keywords.length<1) throw new Error('Publisher blocked article without keywords'); const path=`src/content/blog/articles/${article.slug}.article.json`; const branch=`content/${article.slug}-${today}`; const json=JSON.stringify(article,null,2)+'\\n'; return [{json:{draft:d,article,branch,path,content_b64:Buffer.from(json,'utf8').toString('base64'),main_sha:$('Get Website Main SHA').item.json.object.sha}}];"
       },
       "id": "prepare",
       "name": "Prepare Isolated Article File",
@@ -163,7 +163,7 @@
   "pinData": {},
   "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
   "active": false,
-  "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a004",
+  "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a005",
   "meta": {"templateCredsSetupCompleted": false},
   "tags": []
 }
