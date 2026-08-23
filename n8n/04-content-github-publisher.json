@@ -35,9 +35,10 @@
     {
       "parameters": {
         "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/git/ref/heads/main",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
           {"name": "Accept", "value": "application/vnd.github+json"},
           {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
         ]},
@@ -52,9 +53,10 @@
     {
       "parameters": {
         "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/contents/src/content/insights.ts?ref=main",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
           {"name": "Accept", "value": "application/vnd.github+json"},
           {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
         ]},
@@ -80,9 +82,10 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/git/refs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
           {"name": "Accept", "value": "application/vnd.github+json"},
           {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
         ]},
@@ -102,9 +105,10 @@
       "parameters": {
         "method": "PUT",
         "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/contents/src/content/insights.ts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
           {"name": "Accept", "value": "application/vnd.github+json"},
           {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
         ]},
@@ -124,9 +128,10 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/pulls",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
           {"name": "Accept", "value": "application/vnd.github+json"},
           {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
         ]},
