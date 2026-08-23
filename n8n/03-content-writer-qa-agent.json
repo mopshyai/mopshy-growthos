@@ -1,0 +1,177 @@
+{
+  "name": "03 - Autonomous Content Writer + QA",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "15 7 * * *"}]}},
+      "id": "daily-trigger",
+      "name": "Daily 7:15 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1240, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities?status=eq.discovered&recommended_action=eq.publish&opportunity_score=gte.82&order=opportunity_score.desc&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "get-candidate",
+      "name": "Get Best Publish Candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1000, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) return []; const c = items[0].json; if ((Number(c.cannibalization_risk)||0) > 0.65) return []; return items;"
+      },
+      "id": "candidate-gate",
+      "name": "Candidate Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-760, 0]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities?id=eq.' + $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'researching', updated_at: $now.toISO() }) }}",
+        "options": {}
+      },
+      "id": "mark-researching",
+      "name": "Mark Researching",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-520, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"},
+          {"name": "Content-Type", "value": "application/json"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: $env.OPENAI_CONTENT_MODEL || 'gpt-5.4', tools: [{ type: 'web_search' }], input: `Act as Mopshy's research editor and writer. Research this approved opportunity deeply using current web sources. OPPORTUNITY: ${JSON.stringify($('Candidate Gate').item.json)}. Write a genuinely useful Mopshy article for business operators. Use primary sources for changing product/policy/technical claims. Do not invent facts, statistics, customer outcomes, first-hand tests, quotes, pricing, dates, or capabilities. Add a distinct practical Mopshy contribution such as a workflow architecture, decision framework, implementation pattern, teardown, or trade-off analysis. Answer the core query near the top. Include at least 3 internal-link suggestions to relevant Mopshy content/service paths when reasonably inferable. Return ONLY JSON: {slug,category,title,excerpt,readTime,metaTitle,metaDescription,keywords:[string],body:[{type:'p'|'h2'|'h3'|'ul'|'quote'|'links',text?,items?,title?}],faqs:[{q,a}],sources:[{url,publisher,title,publishedAt,claims:[string],primary:boolean}],internal_links:[{label,url}],research_notes:string}. Ensure body is publication-grade and source-backed.` }) }}",
+        "options": {"timeout": 240000}
+      },
+      "id": "research-write",
+      "name": "Research + Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-280, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=items[0].json; const text=r.output_text || r.output?.flatMap(o=>o.content||[]).find(c=>c.type==='output_text')?.text || ''; let d; try{d=JSON.parse(text)}catch(e){const m=text.match(/\\{[\\s\\S]*\\}/); if(!m) throw e; d=JSON.parse(m[0]);} d.opportunity_id=$('Candidate Gate').item.json.id; d.model=r.model||null; return [{json:d}];"
+      },
+      "id": "parse-draft",
+      "name": "Parse Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"},
+          {"name": "Content-Type", "value": "application/json"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: $env.OPENAI_QA_MODEL || $env.OPENAI_CONTENT_MODEL || 'gpt-5.4', tools: [{ type: 'web_search' }], input: `You are an independent senior fact checker, SEO editor, and anti-spam quality gate. Audit the following Mopshy article WITHOUT trusting the writer's research. Re-open and verify changing claims from reliable sources. ARTICLE: ${JSON.stringify($json)}. Return ONLY JSON: {quality_score:number, fact_check_passed:boolean, primary_source_present:boolean, unsupported_claim_count:number, unsupported_claims:[{claim,reason}], outdated_claims:[string], source_quality_issues:[string], seo_aeo_issues:[string], originality_issues:[string], corrections:[string], verdict:'PASS'|'BLOCK'}. PASS only if quality_score >=90, unsupported material factual claims = 0, a primary source exists when required, the headline is supported, sources are credible, and the article adds non-commodity practical value. Block generic scaled-content material.` }) }}",
+        "options": {"timeout": 240000}
+      },
+      "id": "qa",
+      "name": "Independent Fact Check + QA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [200, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=items[0].json; const text=r.output_text || r.output?.flatMap(o=>o.content||[]).find(c=>c.type==='output_text')?.text || ''; let q; try{q=JSON.parse(text)}catch(e){const m=text.match(/\\{[\\s\\S]*\\}/); if(!m) throw e; q=JSON.parse(m[0]);} const d=$('Parse Draft').item.json; const ready=q.verdict==='PASS' && Number(q.quality_score)>=90 && Number(q.unsupported_claim_count)===0 && q.fact_check_passed===true; return [{json:{draft:d,qa:q,ready}}];"
+      },
+      "id": "gate",
+      "name": "Publication Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Content-Type", "value": "application/json"},
+          {"name": "Prefer", "value": "return=representation"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ opportunity_id: $json.draft.opportunity_id, slug: $json.draft.slug, title: $json.draft.title, category: $json.draft.category, excerpt: $json.draft.excerpt, meta_title: $json.draft.metaTitle, meta_description: $json.draft.metaDescription, keywords: $json.draft.keywords || [], body: $json.draft.body || [], faqs: $json.draft.faqs || [], sources: $json.draft.sources || [], internal_links: $json.draft.internal_links || [], quality_score: $json.qa.quality_score, fact_check_passed: $json.qa.fact_check_passed, primary_source_present: $json.qa.primary_source_present, unsupported_claim_count: $json.qa.unsupported_claim_count, commercial_relevance_score: $('Candidate Gate').item.json.commercial_relevance, status: $json.ready ? 'ready' : 'blocked', qa_report: $json.qa }) }}",
+        "options": {}
+      },
+      "id": "store-draft",
+      "name": "Store QA'd Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 80]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities?id=eq.' + $('Candidate Gate').item.json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: $('Publication Gate').item.json.ready ? 'ready' : 'rejected', updated_at: $now.toISO() }) }}",
+        "options": {}
+      },
+      "id": "complete-opportunity",
+      "name": "Update Opportunity Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 80]
+    }
+  ],
+  "connections": {
+    "Daily 7:15 AM MT": {"main": [[{"node": "Get Best Publish Candidate", "type": "main", "index": 0}]]},
+    "Get Best Publish Candidate": {"main": [[{"node": "Candidate Gate", "type": "main", "index": 0}]]},
+    "Candidate Gate": {"main": [[{"node": "Mark Researching", "type": "main", "index": 0}, {"node": "Research + Draft", "type": "main", "index": 0}]]},
+    "Research + Draft": {"main": [[{"node": "Parse Draft", "type": "main", "index": 0}]]},
+    "Parse Draft": {"main": [[{"node": "Independent Fact Check + QA", "type": "main", "index": 0}]]},
+    "Independent Fact Check + QA": {"main": [[{"node": "Publication Gate", "type": "main", "index": 0}]]},
+    "Publication Gate": {"main": [[{"node": "Store QA'd Draft", "type": "main", "index": 0}]]},
+    "Store QA'd Draft": {"main": [[{"node": "Update Opportunity Status", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
+  "active": false,
+  "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a002",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}
