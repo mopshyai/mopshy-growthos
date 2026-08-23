@@ -1,0 +1,183 @@
+{
+  "name": "04 - Guarded GitHub Blog Publisher",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "0 8 * * *"}]}},
+      "id": "daily-trigger",
+      "name": "Daily 8:00 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1460, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts?status=eq.ready&fact_check_passed=eq.true&quality_score=gte.90&unsupported_claim_count=eq.0&order=created_at.asc&limit=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "get-ready",
+      "name": "Get Ready Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1220, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) return []; const d=items[0].json; if (!d.fact_check_passed || Number(d.quality_score)<90 || Number(d.unsupported_claim_count)!==0) return []; return items;"
+      },
+      "id": "final-gate",
+      "name": "Final Safety Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-980, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/git/ref/heads/main",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
+          {"name": "Accept", "value": "application/vnd.github+json"},
+          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+        ]},
+        "options": {}
+      },
+      "id": "main-ref",
+      "name": "Get Website Main SHA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, -120]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/contents/src/content/insights.ts?ref=main",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
+          {"name": "Accept", "value": "application/vnd.github+json"},
+          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+        ]},
+        "options": {}
+      },
+      "id": "get-content",
+      "name": "Fetch Article Registry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-740, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d=$('Final Safety Gate').item.json; const f=$('Fetch Article Registry').item.json; const source=Buffer.from(String(f.content||'').replace(/\\n/g,''),'base64').toString('utf8'); if(source.includes(`slug: \\\"${d.slug}\\\"`) || source.includes(`slug: '${d.slug}'`)) throw new Error('Slug already exists'); const js=(v)=>JSON.stringify(v??''); const block=(b)=>{ if(b.type==='p') return `      p(${js(b.text)}),`; if(b.type==='h2') return `      h2(${js(b.text)}),`; if(b.type==='h3') return `      h3(${js(b.text)}),`; if(b.type==='quote') return `      quote(${js(b.text)}),`; if(b.type==='ul') return `      ul(${JSON.stringify(b.items||[])}),`; if(b.type==='links') return `      links(${js(b.title||'Related')}, ${JSON.stringify(b.items||[])}),`; return ''; }; const sourceItems=(d.sources||[]).filter(s=>s.url).map(s=>({label:s.title||s.publisher||s.url,url:s.url,source:s.publisher||undefined})); const internal=(d.internal_links||[]).filter(x=>x.url).map(x=>({label:x.label||x.url,url:x.url})); const extra=[]; if(internal.length) extra.push(`      links(\\\"Related on Mopshy\\\", ${JSON.stringify(internal)}),`); if(sourceItems.length) extra.push(`      links(\\\"Sources\\\", ${JSON.stringify(sourceItems)}),`); const article=`  {\\n    slug: ${js(d.slug)},\\n    category: ${js(d.category)},\\n    title: ${js(d.title)},\\n    excerpt: ${js(d.excerpt)},\\n    readTime: ${js(d.read_time||d.readTime||'8 min read')},\\n    cover: cover_n8n_smb,\\n    publishedAt: ${js(new Date().toISOString().slice(0,10))},\\n    metaTitle: ${js(d.meta_title)},\\n    metaDescription: ${js(d.meta_description)},\\n    keywords: ${JSON.stringify(d.keywords||[])},\\n    body: [\\n${(d.body||[]).map(block).filter(Boolean).join('\\n')}\\n${extra.join('\\n')}\\n    ],\\n    faqs: ${JSON.stringify(d.faqs||[])},\\n  },\\n`; const marker='\\n];\\n\\nimport { applyExtensions }'; const idx=source.lastIndexOf(marker); if(idx<0) throw new Error('Article registry marker not found; publisher refuses to mutate unknown file shape'); const updated=source.slice(0,idx)+`\\n${article}`+source.slice(idx); const branch=`content/${d.slug}-${new Date().toISOString().slice(0,10)}`; return [{json:{draft:d,branch,file_sha:f.sha,content_b64:Buffer.from(updated,'utf8').toString('base64'),main_sha:$('Get Website Main SHA').item.json.object.sha}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Constrained Content Patch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/git/refs",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
+          {"name": "Accept", "value": "application/vnd.github+json"},
+          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ref: 'refs/heads/' + $json.branch, sha: $json.main_sha }) }}",
+        "options": {}
+      },
+      "id": "branch",
+      "name": "Create Article Branch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 0]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/contents/src/content/insights.ts",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
+          {"name": "Accept", "value": "application/vnd.github+json"},
+          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ message: 'content: publish ' + $('Prepare Constrained Content Patch').item.json.draft.slug, content: $('Prepare Constrained Content Patch').item.json.content_b64, sha: $('Prepare Constrained Content Patch').item.json.file_sha, branch: $('Prepare Constrained Content Patch').item.json.branch }) }}",
+        "options": {}
+      },
+      "id": "update-content",
+      "name": "Commit Article Only",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/pulls",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.GITHUB_CONTENT_TOKEN }}"},
+          {"name": "Accept", "value": "application/vnd.github+json"},
+          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+        ]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ title: 'Content: ' + $('Prepare Constrained Content Patch').item.json.draft.title, head: $('Prepare Constrained Content Patch').item.json.branch, base: 'main', body: 'Autonomous Content Engine candidate. Quality score: ' + $('Prepare Constrained Content Patch').item.json.draft.quality_score + '. Fact-check passed: ' + $('Prepare Constrained Content Patch').item.json.draft.fact_check_passed + '. This PR intentionally changes only the approved blog article registry. Auto-merge is disabled.' }) }}",
+        "options": {}
+      },
+      "id": "pr",
+      "name": "Open Review PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts?id=eq.' + $('Final Safety Gate').item.json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'publishing', github_pr_url: $json.html_url }) }}",
+        "options": {}
+      },
+      "id": "record-pr",
+      "name": "Record PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "Daily 8:00 AM MT": {"main": [[{"node": "Get Ready Draft", "type": "main", "index": 0}]]},
+    "Get Ready Draft": {"main": [[{"node": "Final Safety Gate", "type": "main", "index": 0}]]},
+    "Final Safety Gate": {"main": [[{"node": "Get Website Main SHA", "type": "main", "index": 0}, {"node": "Fetch Article Registry", "type": "main", "index": 0}]]},
+    "Get Website Main SHA": {"main": [[{"node": "Prepare Constrained Content Patch", "type": "main", "index": 0}]]},
+    "Fetch Article Registry": {"main": [[{"node": "Prepare Constrained Content Patch", "type": "main", "index": 0}]]},
+    "Prepare Constrained Content Patch": {"main": [[{"node": "Create Article Branch", "type": "main", "index": 0}]]},
+    "Create Article Branch": {"main": [[{"node": "Commit Article Only", "type": "main", "index": 0}]]},
+    "Commit Article Only": {"main": [[{"node": "Open Review PR", "type": "main", "index": 0}]]},
+    "Open Review PR": {"main": [[{"node": "Record PR", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
+  "active": false,
+  "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a003",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}
