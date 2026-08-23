@@ -56,15 +56,16 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"},
           {"name": "Content-Type", "value": "application/json"}
         ]},
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: $env.OPENAI_CONTENT_MODEL || 'gpt-5.4', tools: [{ type: 'web_search' }], input: `Act as Mopshy's research editor and writer. Research this approved opportunity deeply using current web sources. OPPORTUNITY: ${JSON.stringify($('Candidate Gate').item.json)}. Write a genuinely useful Mopshy article for business operators. Use primary sources for changing product/policy/technical claims. Do not invent facts, statistics, customer outcomes, first-hand tests, quotes, pricing, dates, or capabilities. Add a distinct practical Mopshy contribution such as a workflow architecture, decision framework, implementation pattern, teardown, or trade-off analysis. Answer the core query near the top. Include at least 3 internal-link suggestions to relevant Mopshy content/service paths when reasonably inferable. Return ONLY JSON: {slug,category,title,excerpt,readTime,metaTitle,metaDescription,keywords:[string],body:[{type:'p'|'h2'|'h3'|'ul'|'quote'|'links',text?,items?,title?}],faqs:[{q,a}],sources:[{url,publisher,title,publishedAt,claims:[string],primary:boolean}],internal_links:[{label,url}],research_notes:string}. Ensure body is publication-grade and source-backed.` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `Act as Mopshy's research editor and writer. Research this approved opportunity deeply using current web sources. OPPORTUNITY: ${JSON.stringify($('Candidate Gate').item.json)}. Write a genuinely useful Mopshy article for business operators. Use primary sources for changing product/policy/technical claims. Do not invent facts, statistics, customer outcomes, first-hand tests, quotes, pricing, dates, or capabilities. Add a distinct practical Mopshy contribution such as a workflow architecture, decision framework, implementation pattern, teardown, or trade-off analysis. Answer the core query near the top. Include at least 3 internal-link suggestions to relevant Mopshy content/service paths when reasonably inferable. Return ONLY JSON: {slug,category,title,excerpt,readTime,metaTitle,metaDescription,keywords:[string],body:[{type:'p'|'h2'|'h3'|'ul'|'quote'|'links',text?,items?,title?}],faqs:[{q,a}],sources:[{url,publisher,title,publishedAt,claims:[string],primary:boolean}],internal_links:[{label,url}],research_notes:string}. Ensure body is publication-grade and source-backed.` }) }}",
         "options": {"timeout": 240000}
       },
       "id": "research-write",
@@ -87,15 +88,16 @@
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
         "sendHeaders": true,
         "headerParameters": {"parameters": [
-          {"name": "Authorization", "value": "={{ 'Bearer ' + $env.OPENAI_API_KEY }}"},
           {"name": "Content-Type", "value": "application/json"}
         ]},
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: $env.OPENAI_QA_MODEL || $env.OPENAI_CONTENT_MODEL || 'gpt-5.4', tools: [{ type: 'web_search' }], input: `You are an independent senior fact checker, SEO editor, and anti-spam quality gate. Audit the following Mopshy article WITHOUT trusting the writer's research. Re-open and verify changing claims from reliable sources. ARTICLE: ${JSON.stringify($json)}. Return ONLY JSON: {quality_score:number, fact_check_passed:boolean, primary_source_present:boolean, unsupported_claim_count:number, unsupported_claims:[{claim,reason}], outdated_claims:[string], source_quality_issues:[string], seo_aeo_issues:[string], originality_issues:[string], corrections:[string], verdict:'PASS'|'BLOCK'}. PASS only if quality_score >=90, unsupported material factual claims = 0, a primary source exists when required, the headline is supported, sources are credible, and the article adds non-commodity practical value. Block generic scaled-content material.` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are an independent senior fact checker, SEO editor, and anti-spam quality gate. Audit the following Mopshy article WITHOUT trusting the writer's research. Re-open and verify changing claims from reliable sources. ARTICLE: ${JSON.stringify($json)}. Return ONLY JSON: {quality_score:number, fact_check_passed:boolean, primary_source_present:boolean, unsupported_claim_count:number, unsupported_claims:[{claim,reason}], outdated_claims:[string], source_quality_issues:[string], seo_aeo_issues:[string], originality_issues:[string], corrections:[string], verdict:'PASS'|'BLOCK'}. PASS only if quality_score >=90, unsupported material factual claims = 0, a primary source exists when required, the headline is supported, sources are credible, and the article adds non-commodity practical value. Block generic scaled-content material.` }) }}",
         "options": {"timeout": 240000}
       },
       "id": "qa",
