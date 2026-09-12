@@ -14,5 +14,6 @@ values
 ('Competitor Intelligence','competitor-intelligence','Track competitor changes and strategic gaps','green','daily'),
 ('Reputation Intelligence','reputation-intelligence','Track brand mentions, reviews, and response needs','green','hourly'),
 ('Lead Intent','lead-intent','Score buying intent and enrich qualified accounts','green','hourly'),
-('Growth Director','growth-director','Prioritize work across GrowthOS toward pipeline and authority','green','daily')
+('Growth Director','growth-director','Prioritize work across GrowthOS toward pipeline and authority','green','daily'),
+('Content Performance','content-performance','Measure published article performance and raise refresh signals','green','daily')
 on conflict (slug) do nothing;

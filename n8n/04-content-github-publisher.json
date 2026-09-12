@@ -2,35 +2,63 @@
   "name": "04 - Guarded GitHub Blog Publisher",
   "nodes": [
     {
-      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "0 8 * * *"}]}},
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
       "id": "daily-trigger",
       "name": "Daily 8:00 AM MT",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1220, 0]
+      "position": [
+        -1220,
+        0
+      ]
     },
     {
       "parameters": {
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts?status=eq.ready&fact_check_passed=eq.true&quality_score=gte.90&unsupported_claim_count=eq.0&primary_source_present=eq.true&order=created_at.asc&limit=1",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
-        "options": {}
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?status=eq.ready&fact_check_passed=eq.true&quality_score=gte.90&unsupported_claim_count=eq.0&primary_source_present=eq.true&order=created_at.asc&limit=1' }}",
+        "options": {},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
       },
       "id": "get-ready",
       "name": "Get Ready Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-980, 0]
+      "position": [
+        -980,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "if (!items.length || !items[0].json.id) return []; const d=items[0].json; if (!d.fact_check_passed || Number(d.quality_score)<90 || Number(d.unsupported_claim_count)!==0 || d.primary_source_present!==true) return []; if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(d.slug||''))) throw new Error('Publisher blocked invalid slug'); if (!Array.isArray(d.body) || d.body.length < 3) throw new Error('Publisher blocked underspecified article body'); const sources=Array.isArray(d.sources)?d.sources.filter(s=>s&&s.url):[]; if(sources.length<3) throw new Error('Publisher requires at least 3 sources'); if(!sources.some(s=>s.primary===true)) throw new Error('Publisher requires at least one primary source'); const internal=Array.isArray(d.internal_links)?d.internal_links.filter(x=>x&&x.url&&String(x.url).startsWith('/')):[]; if(internal.length<3) throw new Error('Publisher requires at least 3 internal links'); return items;"
+        "jsCode": "if (!items.length || !items[0].json.id) return []; const d=items[0].json; if (!d.fact_check_passed || Number(d.quality_score)<90 || Number(d.unsupported_claim_count)!==0 || d.primary_source_present!==true) return []; if (d.qa_report && Array.isArray(d.qa_report.outdated_claims) && d.qa_report.outdated_claims.length>0) throw new Error('Publisher blocked draft with outdated claims in QA report'); const allowedCategories=['AI News','Automation Playbook','Technical Guide','Tool Spotlight','Lead Generation','Sales','Operations','Enterprise AI','Fundamentals']; if (!allowedCategories.includes(String(d.category||''))) throw new Error('Publisher blocked category outside content-engine allowlist: ' + d.category); if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(d.slug||''))) throw new Error('Publisher blocked invalid slug'); if (!Array.isArray(d.body) || d.body.length < 3) throw new Error('Publisher blocked underspecified article body'); const sources=Array.isArray(d.sources)?d.sources.filter(s=>s&&s.url):[]; if(sources.length<3) throw new Error('Publisher requires at least 3 sources'); if(!sources.some(s=>s.primary===true)) throw new Error('Publisher requires at least one primary source'); const internal=Array.isArray(d.internal_links)?d.internal_links.filter(x=>x&&x.url&&String(x.url).startsWith('/')):[]; if(internal.length<3) throw new Error('Publisher requires at least 3 internal links'); return items;"
       },
       "id": "final-gate",
       "name": "Final Safety Gate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-740, 0]
+      "position": [
+        -740,
+        0
+      ]
     },
     {
       "parameters": {
@@ -38,17 +66,28 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Accept", "value": "application/vnd.github+json"},
-          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "main-ref",
       "name": "Get Website Main SHA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-500, 0]
+      "position": [
+        -500,
+        0
+      ]
     },
     {
       "parameters": {
@@ -58,7 +97,10 @@
       "name": "Prepare Isolated Article File",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-260, 0]
+      "position": [
+        -260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -67,10 +109,18 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Accept", "value": "application/vnd.github+json"},
-          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -81,7 +131,10 @@
       "name": "Create Article Branch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-20, 0]
+      "position": [
+        -20,
+        0
+      ]
     },
     {
       "parameters": {
@@ -90,10 +143,18 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Accept", "value": "application/vnd.github+json"},
-          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -104,7 +165,10 @@
       "name": "Create Article File Only",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
@@ -113,10 +177,18 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Accept", "value": "application/vnd.github+json"},
-          {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -127,16 +199,32 @@
       "name": "Open Review PR",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [460, 0]
+      "position": [
+        460,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts?id=eq.' + $('Final Safety Gate').item.json.id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?id=eq.' + $('Final Safety Gate').item.json.id }}' }}",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -147,23 +235,111 @@
       "name": "Record PR",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [700, 0]
+      "position": [
+        700,
+        0
+      ]
     }
   ],
   "connections": {
-    "Daily 8:00 AM MT": {"main": [[{"node": "Get Ready Draft", "type": "main", "index": 0}]]},
-    "Get Ready Draft": {"main": [[{"node": "Final Safety Gate", "type": "main", "index": 0}]]},
-    "Final Safety Gate": {"main": [[{"node": "Get Website Main SHA", "type": "main", "index": 0}]]},
-    "Get Website Main SHA": {"main": [[{"node": "Prepare Isolated Article File", "type": "main", "index": 0}]]},
-    "Prepare Isolated Article File": {"main": [[{"node": "Create Article Branch", "type": "main", "index": 0}]]},
-    "Create Article Branch": {"main": [[{"node": "Create Article File Only", "type": "main", "index": 0}]]},
-    "Create Article File Only": {"main": [[{"node": "Open Review PR", "type": "main", "index": 0}]]},
-    "Open Review PR": {"main": [[{"node": "Record PR", "type": "main", "index": 0}]]}
+    "Daily 8:00 AM MT": {
+      "main": [
+        [
+          {
+            "node": "Get Ready Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ready Draft": {
+      "main": [
+        [
+          {
+            "node": "Final Safety Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Safety Gate": {
+      "main": [
+        [
+          {
+            "node": "Get Website Main SHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Website Main SHA": {
+      "main": [
+        [
+          {
+            "node": "Prepare Isolated Article File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Isolated Article File": {
+      "main": [
+        [
+          {
+            "node": "Create Article Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Article Branch": {
+      "main": [
+        [
+          {
+            "node": "Create Article File Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Article File Only": {
+      "main": [
+        [
+          {
+            "node": "Open Review PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open Review PR": {
+      "main": [
+        [
+          {
+            "node": "Record PR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
-  "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
   "active": false,
   "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a005",
-  "meta": {"templateCredsSetupCompleted": false},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
   "tags": []
 }

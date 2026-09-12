@@ -1,0 +1,689 @@
+{
+  "name": "05 - Content Performance Agent",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "30 8 * * *"}]}},
+      "id": "daily-trigger",
+      "name": "Daily 8:30 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1520, -200]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1520, 40]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "agent-slug", "name": "agent_slug", "value": "content-performance", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "run-config",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1280, -80]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.content-performance&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-agent",
+      "name": "Get Performance Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1040, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Content Performance agent was not found in Supabase. Apply supabase/migrations/20260912_content_engine_hardening.sql or scripts/seed_agents.sql.'); }\nreturn items;"
+      },
+      "id": "validate-agent",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-800, -80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, phases: ['pr_reconciliation', 'performance_snapshots'] } }) }}",
+        "options": {}
+      },
+      "id": "create-run",
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-560, -80]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?status=eq.publishing&select=id,slug,opportunity_id,github_pr_url' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-publishing",
+      "name": "Get Publishing Drafts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "position": [-320, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = items.map(i => i.json).filter(d => d && d.id && String(d.github_pr_url || '').match(/\\/pull\\/(\\d+)/));\nif (!rows.length) return [{ json: { pr_number: null, draft_id: null, slug: null, opportunity_id: null } }];\nreturn rows.map(d => ({ json: { pr_number: String(d.github_pr_url).match(/\\/pull\\/(\\d+)/)[1], draft_id: d.id, slug: d.slug, opportunity_id: d.opportunity_id || null } }));"
+      },
+      "id": "split-prs",
+      "name": "Split PR Numbers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, -80]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.pr_number ? ('https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/pulls/' + $json.pr_number) : 'https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Accept", "value": "application/vnd.github+json"},
+            {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-pr-state",
+      "name": "Get PR State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [160, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const plan = $('Split PR Numbers').all().map(i => i.json).filter(d => d.draft_id);\nconst resp = $('Get PR State').all().map(i => i.json);\nlet merged = 0, failed = 0, open = 0;\nplan.forEach((p, i) => {\n  const r = resp[i] || {};\n  if (r.merged === true) merged++;\n  else if (r.state === 'closed') failed++;\n  else open++;\n});\nreturn [{ json: { phase_a_summary: { publishing_drafts_checked: plan.length, prs_merged: merged, prs_closed_unmerged: failed, prs_still_open: open } } }];"
+      },
+      "id": "consolidate",
+      "name": "Consolidate PRs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const plan = $('Split PR Numbers').all().map(i => i.json).filter(d => d.draft_id);\nconst resp = $('Get PR State').all().map(i => i.json);\nconst out = [];\nplan.forEach((p, i) => {\n  const r = resp[i] || {};\n  const merged = r.merged === true;\n  const closed = r.state === 'closed';\n  out.push({ draft_id: p.draft_id, slug: p.slug, opportunity_id: p.opportunity_id, outcome: merged ? 'merged' : (closed ? 'failed' : 'open'), pr_url: r.html_url || null });\n});\nreturn out.map(o => ({ json: o }));"
+      },
+      "id": "classify",
+      "name": "Classify PR Outcomes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, -320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "merged",
+              "operator": {"type": "string", "operation": "equals"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-merged",
+      "name": "PR Merged?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, -320]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?id=eq.' + $json.draft_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'published', published_at: $now.toISO(), published_url: 'https://mopshy.com/blog/' + $json.slug }) }}",
+        "options": {}
+      },
+      "id": "mark-published",
+      "name": "Mark Draft Published",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, -440]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.opportunity_id }}",
+              "rightValue": "",
+              "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-opp",
+      "name": "Has Opportunity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1360, -440]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_opportunities?id=eq.' + $json.opportunity_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'published', updated_at: $now.toISO() }) }}",
+        "options": {}
+      },
+      "id": "mark-opp-published",
+      "name": "Mark Opportunity Published",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, -560]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "failed",
+              "operator": {"type": "string", "operation": "equals"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-failed",
+      "name": "PR Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, -200]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?id=eq.' + $json.draft_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'failed' }) }}",
+        "options": {}
+      },
+      "id": "mark-failed",
+      "name": "Mark Draft Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, -200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?status=eq.published&published_at=not.is.null&select=id,slug,published_at' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-published",
+      "name": "Get Published Drafts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "position": [640, 160]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_performance_snapshots?select=draft_id,window_days' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-snapshots",
+      "name": "Get Existing Snapshots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "alwaysOutputData": true,
+      "position": [880, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const published = $('Get Published Drafts').all().map(i => i.json).filter(d => d && d.id && d.published_at);\nconst capturedItems = items.flatMap(i => Array.isArray(i.json) ? i.json : [i.json]).filter(s => s && s.draft_id);\nconst captured = new Set(capturedItems.map(s => s.draft_id + '|' + s.window_days));\nconst windows = [];\nfor (const d of published) {\n  const pub = new Date(d.published_at);\n  for (const w of [7, 14, 30]) {\n    const end = new Date(pub); end.setUTCDate(end.getUTCDate() + w);\n    if (end > new Date()) continue;\n    if (captured.has(d.id + '|' + w)) continue;\n    windows.push({ draft_id: d.id, slug: d.slug, url: 'https://mopshy.com/blog/' + d.slug, window_days: w, start_date: pub.toISOString().slice(0, 10), end_date: end.toISOString().slice(0, 10) });\n  }\n}\nreturn [{ json: { windows, ga4_configured: Boolean($env.GA4_PROPERTY_ID) } }];"
+      },
+      "id": "plan-windows",
+      "name": "Plan Snapshot Windows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.windows.length }}",
+              "rightValue": 0,
+              "operator": {"type": "number", "operation": "gt"}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-due",
+      "name": "Has Due Windows?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1360, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ga4_configured }}",
+              "rightValue": "",
+              "operator": {"type": "boolean", "operation": "true", "singleValue": true}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-ga4",
+      "name": "GA4 Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1600, 60]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.windows.map(w => ({ json: w }));"
+      },
+      "id": "explode",
+      "name": "Explode Windows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($env.GSC_SITE_URL || 'https://mopshy.com/') + '/searchAnalytics/query' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ startDate: $json.start_date, endDate: $json.end_date, dimensions: ['page'], dimensionFilter: { filters: [{ dimension: 'page', operator: 'equals', expression: $json.url }] }, rowLimit: 10 }) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "gsc-page",
+      "name": "GSC Page Performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://analyticsdata.googleapis.com/v1beta/properties/' + $env.GA4_PROPERTY_ID + ':runReport' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ dateRanges: [{ startDate: $('Explode Windows').item.json.start_date, endDate: $('Explode Windows').item.json.end_date }], metrics: [{ name: 'sessions' }, { name: 'conversions' }], dimensionFilter: { andGroup: { expressions: [ { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'EXACT', value: '/blog/' + $('Explode Windows').item.json.slug } } }, { filter: { fieldName: 'sessionDefaultChannelGroup', stringFilter: { matchType: 'EXACT', value: 'Organic Search' } } } ] } }, limit: 10 }) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "ga4-sessions",
+      "name": "GA4 Page Sessions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2320, -40]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://analyticsdata.googleapis.com/v1beta/properties/' + $env.GA4_PROPERTY_ID + ':runReport' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ dateRanges: [{ startDate: $('Explode Windows').item.json.start_date, endDate: $('Explode Windows').item.json.end_date }], dimensions: [{ name: 'sessionSource' }], metrics: [{ name: 'sessions' }], dimensionFilter: { andGroup: { expressions: [ { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'EXACT', value: '/blog/' + $('Explode Windows').item.json.slug } } }, { filter: { fieldName: 'sessionSource', inListFilter: { values: ['chatgpt.com', 'chat.openai.com', 'perplexity.ai', 'claude.ai', 'gemini.google.com', 'copilot.microsoft.com'], caseSensitive: false } } } ] } }, limit: 20 }) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "ga4-ai",
+      "name": "GA4 AI Referrals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2560, -40]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.windows.map(w => ({ json: w }));"
+      },
+      "id": "explode-noga4",
+      "name": "Explode Windows (No GA4)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($env.GSC_SITE_URL || 'https://mopshy.com/') + '/searchAnalytics/query' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ startDate: $json.start_date, endDate: $json.end_date, dimensions: ['page'], dimensionFilter: { filters: [{ dimension: 'page', operator: 'equals', expression: $json.url }] }, rowLimit: 10 }) }}",
+        "options": {"timeout": 60000}
+      },
+      "id": "gsc-page-noga4",
+      "name": "GSC Page Performance (No GA4)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2080, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const get = (n) => { try { return $(n).all().map(i => i.json); } catch (e) { return null; } };\nconst plan = get('Explode Windows') || get('Explode Windows (No GA4)') || [];\nconst gsc = get('GSC Page Performance') || get('GSC Page Performance (No GA4)') || [];\nconst ga4S = get('GA4 Page Sessions') || [];\nconst ga4AI = get('GA4 AI Referrals') || [];\nconst snapshots = [];\nplan.forEach((p, i) => {\n  const r = (gsc[i] && gsc[i].rows && gsc[i].rows[0]) || {};\n  const impressions = Number(r.impressions || 0);\n  const clicks = Number(r.clicks || 0);\n  const snap = { draft_id: p.draft_id, window_days: p.window_days, impressions, clicks, ctr: impressions ? Number((clicks / impressions).toFixed(6)) : null, avg_position: r.position != null ? Number(r.position) : null, metadata: { url: p.url } };\n  const g = ga4S[i] && ga4S[i].rows && ga4S[i].rows[0];\n  if (g) {\n    snap.organic_sessions = Number((g.metricValues && g.metricValues[0] && g.metricValues[0].value) || 0);\n    snap.conversions = Number((g.metricValues && g.metricValues[1] && g.metricValues[1].value) || 0);\n  }\n  const ai = ga4AI[i] && ga4AI[i].rows;\n  if (ai && ai.length) {\n    let chatgpt = 0, other = 0;\n    for (const row of ai) {\n      const src = (row.dimensionValues && row.dimensionValues[0] && row.dimensionValues[0].value) || '';\n      const v = Number((row.metricValues && row.metricValues[0] && row.metricValues[0].value) || 0);\n      if (src.includes('chatgpt') || src.includes('openai')) chatgpt += v; else other += v;\n    }\n    snap.chatgpt_referrals = chatgpt;\n    snap.other_ai_referrals = other;\n  }\n  snapshots.push(snap);\n});\nreturn [{ json: { snapshots, snapshot_count: snapshots.length } }];"
+      },
+      "id": "build-rows",
+      "name": "Build Snapshot Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2800, 90]
+    },
+    {
+      "parameters": {
+        "jsCode": "const snaps = items.flatMap(i => (i.json && i.json.snapshots) || []);\nreturn [{ json: { snapshots: snaps, snapshot_count: snaps.length } }];"
+      },
+      "id": "phase-b-summary",
+      "name": "Phase B Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3040, 90]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_performance_snapshots' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Phase B Summary').first().json.snapshots) }}",
+        "options": {}
+      },
+      "id": "insert-snapshots",
+      "name": "Insert Snapshots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3280, 90]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { phase_a: $('Consolidate PRs').first().json.phase_a_summary, phase_b: { snapshots_captured: $('Phase B Summary').first().json.snapshot_count } } }) }}",
+        "options": {}
+      },
+      "id": "complete-run",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3520, 90]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Prefer", "value": "return=minimal"}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}",
+        "options": {}
+      },
+      "id": "update-agent",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3760, 90]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "result", "name": "result", "value": "Content Performance run complete", "type": "string"},
+            {"id": "phase-a", "name": "phase_a_summary", "value": "={{ JSON.stringify($('Consolidate PRs').first().json.phase_a_summary) }}", "type": "string"},
+            {"id": "phase-b", "name": "phase_b_summary", "value": "={{ JSON.stringify({ snapshots_captured: $('Phase B Summary').first().json.snapshot_count }) }}", "type": "string"},
+            {"id": "run", "name": "agent_run_id", "value": "={{ $('Create Agent Run').first().json.id }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "return-summary",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4000, 90]
+    }
+  ],
+  "connections": {
+    "Daily 8:30 AM MT": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
+    "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
+    "Run Config": {"main": [[{"node": "Get Performance Agent", "type": "main", "index": 0}]]},
+    "Get Performance Agent": {"main": [[{"node": "Validate Agent", "type": "main", "index": 0}]]},
+    "Validate Agent": {"main": [[{"node": "Create Agent Run", "type": "main", "index": 0}]]},
+    "Create Agent Run": {"main": [[{"node": "Get Publishing Drafts", "type": "main", "index": 0}]]},
+    "Get Publishing Drafts": {"main": [[{"node": "Split PR Numbers", "type": "main", "index": 0}]]},
+    "Split PR Numbers": {"main": [[{"node": "Get PR State", "type": "main", "index": 0}]]},
+    "Get PR State": {"main": [[{"node": "Consolidate PRs", "type": "main", "index": 0}]]},
+    "Consolidate PRs": {
+      "main": [[
+        {"node": "Classify PR Outcomes", "type": "main", "index": 0},
+        {"node": "Get Published Drafts", "type": "main", "index": 0}
+      ]]
+    },
+    "Classify PR Outcomes": {"main": [[{"node": "PR Merged?", "type": "main", "index": 0}]]},
+    "PR Merged?": {
+      "main": [
+        [{"node": "Mark Draft Published", "type": "main", "index": 0}],
+        [{"node": "PR Failed?", "type": "main", "index": 0}]
+      ]
+    },
+    "Mark Draft Published": {"main": [[{"node": "Has Opportunity?", "type": "main", "index": 0}]]},
+    "Has Opportunity?": {
+      "main": [
+        [{"node": "Mark Opportunity Published", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "PR Failed?": {
+      "main": [
+        [{"node": "Mark Draft Failed", "type": "main", "index": 0}],
+        []
+      ]
+    },
+    "Get Published Drafts": {"main": [[{"node": "Get Existing Snapshots", "type": "main", "index": 0}]]},
+    "Get Existing Snapshots": {"main": [[{"node": "Plan Snapshot Windows", "type": "main", "index": 0}]]},
+    "Plan Snapshot Windows": {"main": [[{"node": "Has Due Windows?", "type": "main", "index": 0}]]},
+    "Has Due Windows?": {
+      "main": [
+        [{"node": "GA4 Enabled?", "type": "main", "index": 0}],
+        [{"node": "Phase B Summary", "type": "main", "index": 0}]
+      ]
+    },
+    "GA4 Enabled?": {
+      "main": [
+        [{"node": "Explode Windows", "type": "main", "index": 0}],
+        [{"node": "Explode Windows (No GA4)", "type": "main", "index": 0}]
+      ]
+    },
+    "Explode Windows": {"main": [[{"node": "GSC Page Performance", "type": "main", "index": 0}]]},
+    "GSC Page Performance": {"main": [[{"node": "GA4 Page Sessions", "type": "main", "index": 0}]]},
+    "GA4 Page Sessions": {"main": [[{"node": "GA4 AI Referrals", "type": "main", "index": 0}]]},
+    "GA4 AI Referrals": {"main": [[{"node": "Build Snapshot Rows", "type": "main", "index": 0}]]},
+    "Explode Windows (No GA4)": {"main": [[{"node": "GSC Page Performance (No GA4)", "type": "main", "index": 0}]]},
+    "GSC Page Performance (No GA4)": {"main": [[{"node": "Build Snapshot Rows", "type": "main", "index": 0}]]},
+    "Build Snapshot Rows": {"main": [[{"node": "Phase B Summary", "type": "main", "index": 0}]]},
+    "Phase B Summary": {"main": [[{"node": "Insert Snapshots", "type": "main", "index": 0}]]},
+    "Insert Snapshots": {"main": [[{"node": "Complete Agent Run", "type": "main", "index": 0}]]},
+    "Complete Agent Run": {"main": [[{"node": "Update Agent Last Run", "type": "main", "index": 0}]]},
+    "Update Agent Last Run": {"main": [[{"node": "Return Summary", "type": "main", "index": 0}]]}
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "55555555-5555-4555-8555-555555555555",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
