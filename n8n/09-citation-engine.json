@@ -13,7 +13,7 @@
         }
       },
       "id": "9ba29269-28d3-5c5c-88e8-e5d918fd9f6b",
-      "name": "Daily 6:45 AM MT",
+      "name": "Daily 6:45 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -446,7 +446,7 @@
     }
   ],
   "connections": {
-    "Daily 6:45 AM MT": {
+    "Daily 6:45 AM ET": {
       "main": [
         [
           {
@@ -614,7 +614,7 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "99f8968e-689f-5d40-ab1e-30e109b174d2",

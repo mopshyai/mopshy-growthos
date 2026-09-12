@@ -1,27 +1,27 @@
 # n8n Workflow Registry
 
-All 16 registered agents have workflows in `n8n/` (import into the `MOPSHY GROWTHOS` n8n Cloud project). Schedules run in `America/Denver` and are staggered so crawl and OpenAI usage never collide.
+All 16 registered agents have workflows in `n8n/` (import into the `MOPSHY GROWTHOS` n8n Cloud project). Schedules run in `America/New_York` (Eastern) and are staggered so crawl and OpenAI usage never collide.
 
 | File | Workflow | Agent (slug) | Autonomy | Schedule |
 |------|----------|--------------|----------|----------|
 | `00-growthos-orchestrator.json` | GrowthOS Orchestrator | — | — | every 15 min |
-| `01-seo-intelligence.json` | SEO Intelligence v3 | `seo-intelligence` | green | daily 5:30 AM |
-| `02-content-opportunity-agent.json` | Autonomous Content Opportunity Agent | `search-opportunity` | green | daily 6:30 AM |
-| `03-content-writer-qa-agent.json` | Autonomous Content Writer + QA | `content-production` | yellow | daily 7:15 AM |
-| `04-content-github-publisher.json` | Guarded GitHub Blog Publisher | `content-production` | yellow | daily 8:00 AM |
-| `05-content-performance-agent.json` | Content Performance Agent | `content-performance` | green | daily 8:30 AM |
-| `06-content-research.json` | Content Research Agent | `content-research` | green | daily 7:00 AM |
-| `07-internal-linking.json` | Internal Linking Agent | `internal-linking` | yellow | daily 5:45 AM |
-| `08-technical-seo.json` | Technical SEO Agent | `technical-seo` | yellow | daily 6:15 AM |
-| `09-citation-engine.json` | Citation Engine Agent | `citation-engine` | yellow | daily 6:45 AM |
-| `10-backlink-intelligence.json` | Backlink Intelligence Agent | `backlink-intelligence` | green | weekly Sun 7:30 AM |
-| `11-founder-content.json` | Founder Content Agent | `founder-content` | yellow | daily 9:00 AM |
-| `12-social-distribution.json` | Social Distribution Agent | `social-distribution` | yellow | daily 9:30 AM |
-| `13-cro-intelligence.json` | CRO Intelligence Agent | `cro-intelligence` | yellow | daily 10:00 AM |
-| `14-competitor-intelligence.json` | Competitor Intelligence Agent | `competitor-intelligence` | green | daily 4:30 PM |
+| `01-seo-intelligence.json` | SEO Intelligence v3 | `seo-intelligence` | green | daily 5:30 AM ET |
+| `02-content-opportunity-agent.json` | Autonomous Content Opportunity Agent | `search-opportunity` | green | daily 6:30 AM ET |
+| `03-content-writer-qa-agent.json` | Autonomous Content Writer + QA | `content-production` | yellow | daily 7:15 AM ET |
+| `04-content-github-publisher.json` | Guarded GitHub Blog Publisher | `content-production` | yellow | daily 8:00 AM ET |
+| `05-content-performance-agent.json` | Content Performance Agent | `content-performance` | green | daily 8:30 AM ET |
+| `06-content-research.json` | Content Research Agent | `content-research` | green | daily 7:00 AM ET |
+| `07-internal-linking.json` | Internal Linking Agent | `internal-linking` | yellow | daily 5:45 AM ET |
+| `08-technical-seo.json` | Technical SEO Agent | `technical-seo` | yellow | daily 6:15 AM ET |
+| `09-citation-engine.json` | Citation Engine Agent | `citation-engine` | yellow | daily 6:45 AM ET |
+| `10-backlink-intelligence.json` | Backlink Intelligence Agent | `backlink-intelligence` | green | weekly Sun 7:30 AM ET |
+| `11-founder-content.json` | Founder Content Agent | `founder-content` | yellow | daily 9:00 AM ET |
+| `12-social-distribution.json` | Social Distribution Agent | `social-distribution` | yellow | daily 9:30 AM ET |
+| `13-cro-intelligence.json` | CRO Intelligence Agent | `cro-intelligence` | yellow | daily 10:00 AM ET |
+| `14-competitor-intelligence.json` | Competitor Intelligence Agent | `competitor-intelligence` | green | daily 4:30 PM ET |
 | `15-reputation-intelligence.json` | Reputation Intelligence Agent | `reputation-intelligence` | green | hourly |
 | `16-lead-intent.json` | Lead Intent Agent | `lead-intent` | green | hourly at :15 |
-| `17-growth-director.json` | Growth Director Agent | `growth-director` | green | daily 7:30 AM |
+| `17-growth-director.json` | Growth Director Agent | `growth-director` | green | daily 7:30 AM ET |
 | `99-error-handler.json` | GrowthOS Error Handler | — | — | on error |
 
 ## What each agent does

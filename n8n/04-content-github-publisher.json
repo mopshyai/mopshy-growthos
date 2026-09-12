@@ -13,7 +13,7 @@
         }
       },
       "id": "daily-trigger",
-      "name": "Daily 8:00 AM MT",
+      "name": "Daily 8:00 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/git/ref/heads/main",
+        "url": "={{ 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/git/ref/heads/main' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
@@ -105,7 +105,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/git/refs",
+        "url": "={{ 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/git/refs' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
@@ -139,7 +139,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "={{ 'https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/contents/' + $('Prepare Isolated Article File').item.json.path }}",
+        "url": "={{ 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/contents/' + $('Prepare Isolated Article File').item.json.path }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
@@ -173,7 +173,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/pulls",
+        "url": "={{ 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/pulls' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
@@ -242,7 +242,7 @@
     }
   ],
   "connections": {
-    "Daily 8:00 AM MT": {
+    "Daily 8:00 AM ET": {
       "main": [
         [
           {
@@ -334,7 +334,7 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a005",

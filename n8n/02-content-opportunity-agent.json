@@ -13,7 +13,7 @@
         }
       },
       "id": "daily-trigger",
-      "name": "Daily 6:30 AM MT",
+      "name": "Daily 6:30 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -111,7 +111,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com. Mopshy already covers these topics/keywords, so do not repeat them unless the angle is genuinely new: ${$('Get Existing Opportunities').all().map(i => i.json.target_keyword || i.json.topic).filter(Boolean).slice(0, 100).join('; ')}. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100; cannibalization_risk is 0-1 where 0.65 or higher means the topic duplicates existing Mopshy coverage. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com, mixed approximately 65% buyer-intent/evergreen commercial (n8n + workflow automation, lead response + AI receptionist, CRM/RevOps automation, AI agents for operations/support, industry-specific automation for professional services, healthcare services, SaaS, e-commerce, logistics, home services, insurance, legal, dental, real estate), 20% original evidence/frameworks/implementation insight, and 15% meaningful timely AI developments. Every opportunity should ideally support a money page. Mopshy already covers these topics/keywords, so do not repeat them unless the angle is genuinely new: ${$('Get Existing Opportunities').all().map(i => i.json.target_keyword || i.json.topic).filter(Boolean).slice(0, 100).join('; ')}. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100; cannibalization_risk is 0-1 where 0.65 or higher means the topic duplicates existing Mopshy coverage. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
         "options": {
           "timeout": 180000
         }
@@ -193,7 +193,7 @@
     }
   ],
   "connections": {
-    "Daily 6:30 AM MT": {
+    "Daily 6:30 AM ET": {
       "main": [
         [
           {
@@ -274,7 +274,7 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a001",

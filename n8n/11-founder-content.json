@@ -13,7 +13,7 @@
         }
       },
       "id": "6d3c4837-742d-5511-b37e-697b34ca4017",
-      "name": "Daily 9:00 AM MT",
+      "name": "Daily 9:00 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -135,7 +135,7 @@
     },
     {
       "parameters": {
-        "url": "={{ 'https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/commits?per_page=30&since=' + encodeURIComponent($now.minus({ days: 7 }).toISO()) }}",
+        "url": "={{ 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/commits?per_page=30&since=' + encodeURIComponent($now.minus({ days: 7 }).toISO()) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -524,7 +524,7 @@
     }
   ],
   "connections": {
-    "Daily 9:00 AM MT": {
+    "Daily 9:00 AM ET": {
       "main": [
         [
           {
@@ -743,7 +743,7 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "4d3a83d6-af47-515a-a963-dfe12b2ed224",

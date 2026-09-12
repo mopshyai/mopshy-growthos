@@ -2,12 +2,24 @@
   "name": "05 - Content Performance Agent",
   "nodes": [
     {
-      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "30 8 * * *"}]}},
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 8 * * *"
+            }
+          ]
+        }
+      },
       "id": "daily-trigger",
-      "name": "Daily 8:30 AM MT",
+      "name": "Daily 8:30 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1520, -200]
+      "position": [
+        -1520,
+        -200
+      ]
     },
     {
       "parameters": {},
@@ -15,13 +27,21 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-1520, 40]
+      "position": [
+        -1520,
+        40
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "agent-slug", "name": "agent_slug", "value": "content-performance", "type": "string"}
+            {
+              "id": "agent-slug",
+              "name": "agent_slug",
+              "value": "content-performance",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -30,7 +50,10 @@
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1280, -80]
+      "position": [
+        -1280,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -38,8 +61,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -48,7 +77,10 @@
       "name": "Get Performance Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-1040, -80]
+      "position": [
+        -1040,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -58,7 +90,10 @@
       "name": "Validate Agent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-800, -80]
+      "position": [
+        -800,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -67,10 +102,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=representation"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
           ]
         },
         "sendBody": true,
@@ -83,7 +130,10 @@
       "name": "Create Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-560, -80]
+      "position": [
+        -560,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -91,8 +141,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -102,7 +158,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "alwaysOutputData": true,
-      "position": [-320, -80]
+      "position": [
+        -320,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -112,18 +171,27 @@
       "name": "Split PR Numbers",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-80, -80]
+      "position": [
+        -80,
+        -80
+      ]
     },
     {
       "parameters": {
-        "url": "={{ $json.pr_number ? ('https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/pulls/' + $json.pr_number) : 'https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine' }}",
+        "url": "={{ $json.pr_number ? ('https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/pulls/' + $json.pr_number) : 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + ' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Accept", "value": "application/vnd.github+json"},
-            {"name": "X-GitHub-Api-Version", "value": "2022-11-28"}
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
           ]
         },
         "options": {}
@@ -132,7 +200,10 @@
       "name": "Get PR State",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [160, -80]
+      "position": [
+        160,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -142,7 +213,10 @@
       "name": "Consolidate PRs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [400, -80]
+      "position": [
+        400,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -152,17 +226,27 @@
       "name": "Classify PR Outcomes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, -320]
+      "position": [
+        640,
+        -320
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.outcome }}",
               "rightValue": "merged",
-              "operator": {"type": "string", "operation": "equals"}
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -173,7 +257,10 @@
       "name": "PR Merged?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [880, -320]
+      "position": [
+        880,
+        -320
+      ]
     },
     {
       "parameters": {
@@ -182,10 +269,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -198,17 +297,28 @@
       "name": "Mark Draft Published",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, -440]
+      "position": [
+        1120,
+        -440
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.opportunity_id }}",
               "rightValue": "",
-              "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -219,7 +329,10 @@
       "name": "Has Opportunity?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1360, -440]
+      "position": [
+        1360,
+        -440
+      ]
     },
     {
       "parameters": {
@@ -228,10 +341,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -244,17 +369,27 @@
       "name": "Mark Opportunity Published",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1600, -560]
+      "position": [
+        1600,
+        -560
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.outcome }}",
               "rightValue": "failed",
-              "operator": {"type": "string", "operation": "equals"}
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -265,7 +400,10 @@
       "name": "PR Failed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1120, -200]
+      "position": [
+        1120,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -274,10 +412,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -290,7 +440,10 @@
       "name": "Mark Draft Failed",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1360, -200]
+      "position": [
+        1360,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -298,8 +451,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -309,7 +468,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "alwaysOutputData": true,
-      "position": [640, 160]
+      "position": [
+        640,
+        160
+      ]
     },
     {
       "parameters": {
@@ -317,8 +479,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -328,7 +496,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "alwaysOutputData": true,
-      "position": [880, 160]
+      "position": [
+        880,
+        160
+      ]
     },
     {
       "parameters": {
@@ -338,17 +509,27 @@
       "name": "Plan Snapshot Windows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1120, 160]
+      "position": [
+        1120,
+        160
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.windows.length }}",
               "rightValue": 0,
-              "operator": {"type": "number", "operation": "gt"}
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
             }
           ],
           "combinator": "and"
@@ -359,17 +540,28 @@
       "name": "Has Due Windows?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1360, 160]
+      "position": [
+        1360,
+        160
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.ga4_configured }}",
               "rightValue": "",
-              "operator": {"type": "boolean", "operation": "true", "singleValue": true}
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -380,7 +572,10 @@
       "name": "GA4 Enabled?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1600, 60]
+      "position": [
+        1600,
+        60
+      ]
     },
     {
       "parameters": {
@@ -390,7 +585,10 @@
       "name": "Explode Windows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1840, -40]
+      "position": [
+        1840,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -401,20 +599,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $json.start_date, endDate: $json.end_date, dimensions: ['page'], dimensionFilter: { filters: [{ dimension: 'page', operator: 'equals', expression: $json.url }] }, rowLimit: 10 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-page",
       "name": "GSC Page Performance",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, -40]
+      "position": [
+        2080,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -425,20 +631,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ dateRanges: [{ startDate: $('Explode Windows').item.json.start_date, endDate: $('Explode Windows').item.json.end_date }], metrics: [{ name: 'sessions' }, { name: 'conversions' }], dimensionFilter: { andGroup: { expressions: [ { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'EXACT', value: '/blog/' + $('Explode Windows').item.json.slug } } }, { filter: { fieldName: 'sessionDefaultChannelGroup', stringFilter: { matchType: 'EXACT', value: 'Organic Search' } } } ] } }, limit: 10 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "ga4-sessions",
       "name": "GA4 Page Sessions",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2320, -40]
+      "position": [
+        2320,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -449,20 +663,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ dateRanges: [{ startDate: $('Explode Windows').item.json.start_date, endDate: $('Explode Windows').item.json.end_date }], dimensions: [{ name: 'sessionSource' }], metrics: [{ name: 'sessions' }], dimensionFilter: { andGroup: { expressions: [ { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'EXACT', value: '/blog/' + $('Explode Windows').item.json.slug } } }, { filter: { fieldName: 'sessionSource', inListFilter: { values: ['chatgpt.com', 'chat.openai.com', 'perplexity.ai', 'claude.ai', 'gemini.google.com', 'copilot.microsoft.com'], caseSensitive: false } } } ] } }, limit: 20 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "ga4-ai",
       "name": "GA4 AI Referrals",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2560, -40]
+      "position": [
+        2560,
+        -40
+      ]
     },
     {
       "parameters": {
@@ -472,7 +694,10 @@
       "name": "Explode Windows (No GA4)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1840, 220]
+      "position": [
+        1840,
+        220
+      ]
     },
     {
       "parameters": {
@@ -483,20 +708,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $json.start_date, endDate: $json.end_date, dimensions: ['page'], dimensionFilter: { filters: [{ dimension: 'page', operator: 'equals', expression: $json.url }] }, rowLimit: 10 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-page-noga4",
       "name": "GSC Page Performance (No GA4)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2080, 220]
+      "position": [
+        2080,
+        220
+      ]
     },
     {
       "parameters": {
@@ -506,7 +739,10 @@
       "name": "Build Snapshot Rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2800, 90]
+      "position": [
+        2800,
+        90
+      ]
     },
     {
       "parameters": {
@@ -516,7 +752,10 @@
       "name": "Phase B Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3040, 90]
+      "position": [
+        3040,
+        90
+      ]
     },
     {
       "parameters": {
@@ -525,10 +764,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -541,7 +792,10 @@
       "name": "Insert Snapshots",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3280, 90]
+      "position": [
+        3280,
+        90
+      ]
     },
     {
       "parameters": {
@@ -550,10 +804,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -566,7 +832,10 @@
       "name": "Complete Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3520, 90]
+      "position": [
+        3520,
+        90
+      ]
     },
     {
       "parameters": {
@@ -575,10 +844,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -591,16 +872,39 @@
       "name": "Update Agent Last Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3760, 90]
+      "position": [
+        3760,
+        90
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "result", "name": "result", "value": "Content Performance run complete", "type": "string"},
-            {"id": "phase-a", "name": "phase_a_summary", "value": "={{ JSON.stringify($('Consolidate PRs').first().json.phase_a_summary) }}", "type": "string"},
-            {"id": "phase-b", "name": "phase_b_summary", "value": "={{ JSON.stringify({ snapshots_captured: $('Phase B Summary').first().json.snapshot_count }) }}", "type": "string"},
-            {"id": "run", "name": "agent_run_id", "value": "={{ $('Create Agent Run').first().json.id }}", "type": "string"}
+            {
+              "id": "result",
+              "name": "result",
+              "value": "Content Performance run complete",
+              "type": "string"
+            },
+            {
+              "id": "phase-a",
+              "name": "phase_a_summary",
+              "value": "={{ JSON.stringify($('Consolidate PRs').first().json.phase_a_summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "phase-b",
+              "name": "phase_b_summary",
+              "value": "={{ JSON.stringify({ snapshots_captured: $('Phase B Summary').first().json.snapshot_count }) }}",
+              "type": "string"
+            },
+            {
+              "id": "run",
+              "name": "agent_run_id",
+              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -609,76 +913,387 @@
       "name": "Return Summary",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [4000, 90]
+      "position": [
+        4000,
+        90
+      ]
     }
   ],
   "connections": {
-    "Daily 8:30 AM MT": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Run Config": {"main": [[{"node": "Get Performance Agent", "type": "main", "index": 0}]]},
-    "Get Performance Agent": {"main": [[{"node": "Validate Agent", "type": "main", "index": 0}]]},
-    "Validate Agent": {"main": [[{"node": "Create Agent Run", "type": "main", "index": 0}]]},
-    "Create Agent Run": {"main": [[{"node": "Get Publishing Drafts", "type": "main", "index": 0}]]},
-    "Get Publishing Drafts": {"main": [[{"node": "Split PR Numbers", "type": "main", "index": 0}]]},
-    "Split PR Numbers": {"main": [[{"node": "Get PR State", "type": "main", "index": 0}]]},
-    "Get PR State": {"main": [[{"node": "Consolidate PRs", "type": "main", "index": 0}]]},
-    "Consolidate PRs": {
-      "main": [[
-        {"node": "Classify PR Outcomes", "type": "main", "index": 0},
-        {"node": "Get Published Drafts", "type": "main", "index": 0}
-      ]]
-    },
-    "Classify PR Outcomes": {"main": [[{"node": "PR Merged?", "type": "main", "index": 0}]]},
-    "PR Merged?": {
+    "Daily 8:30 AM ET": {
       "main": [
-        [{"node": "Mark Draft Published", "type": "main", "index": 0}],
-        [{"node": "PR Failed?", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Mark Draft Published": {"main": [[{"node": "Has Opportunity?", "type": "main", "index": 0}]]},
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Performance Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Performance Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Publishing Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Publishing Drafts": {
+      "main": [
+        [
+          {
+            "node": "Split PR Numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split PR Numbers": {
+      "main": [
+        [
+          {
+            "node": "Get PR State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PR State": {
+      "main": [
+        [
+          {
+            "node": "Consolidate PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate PRs": {
+      "main": [
+        [
+          {
+            "node": "Classify PR Outcomes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Published Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify PR Outcomes": {
+      "main": [
+        [
+          {
+            "node": "PR Merged?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PR Merged?": {
+      "main": [
+        [
+          {
+            "node": "Mark Draft Published",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PR Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Draft Published": {
+      "main": [
+        [
+          {
+            "node": "Has Opportunity?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Has Opportunity?": {
       "main": [
-        [{"node": "Mark Opportunity Published", "type": "main", "index": 0}],
+        [
+          {
+            "node": "Mark Opportunity Published",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
     "PR Failed?": {
       "main": [
-        [{"node": "Mark Draft Failed", "type": "main", "index": 0}],
+        [
+          {
+            "node": "Mark Draft Failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
-    "Get Published Drafts": {"main": [[{"node": "Get Existing Snapshots", "type": "main", "index": 0}]]},
-    "Get Existing Snapshots": {"main": [[{"node": "Plan Snapshot Windows", "type": "main", "index": 0}]]},
-    "Plan Snapshot Windows": {"main": [[{"node": "Has Due Windows?", "type": "main", "index": 0}]]},
+    "Get Published Drafts": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Snapshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Snapshots": {
+      "main": [
+        [
+          {
+            "node": "Plan Snapshot Windows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Snapshot Windows": {
+      "main": [
+        [
+          {
+            "node": "Has Due Windows?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Has Due Windows?": {
       "main": [
-        [{"node": "GA4 Enabled?", "type": "main", "index": 0}],
-        [{"node": "Phase B Summary", "type": "main", "index": 0}]
+        [
+          {
+            "node": "GA4 Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Phase B Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "GA4 Enabled?": {
       "main": [
-        [{"node": "Explode Windows", "type": "main", "index": 0}],
-        [{"node": "Explode Windows (No GA4)", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Explode Windows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explode Windows (No GA4)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Explode Windows": {"main": [[{"node": "GSC Page Performance", "type": "main", "index": 0}]]},
-    "GSC Page Performance": {"main": [[{"node": "GA4 Page Sessions", "type": "main", "index": 0}]]},
-    "GA4 Page Sessions": {"main": [[{"node": "GA4 AI Referrals", "type": "main", "index": 0}]]},
-    "GA4 AI Referrals": {"main": [[{"node": "Build Snapshot Rows", "type": "main", "index": 0}]]},
-    "Explode Windows (No GA4)": {"main": [[{"node": "GSC Page Performance (No GA4)", "type": "main", "index": 0}]]},
-    "GSC Page Performance (No GA4)": {"main": [[{"node": "Build Snapshot Rows", "type": "main", "index": 0}]]},
-    "Build Snapshot Rows": {"main": [[{"node": "Phase B Summary", "type": "main", "index": 0}]]},
-    "Phase B Summary": {"main": [[{"node": "Insert Snapshots", "type": "main", "index": 0}]]},
-    "Insert Snapshots": {"main": [[{"node": "Complete Agent Run", "type": "main", "index": 0}]]},
-    "Complete Agent Run": {"main": [[{"node": "Update Agent Last Run", "type": "main", "index": 0}]]},
-    "Update Agent Last Run": {"main": [[{"node": "Return Summary", "type": "main", "index": 0}]]}
+    "Explode Windows": {
+      "main": [
+        [
+          {
+            "node": "GSC Page Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GSC Page Performance": {
+      "main": [
+        [
+          {
+            "node": "GA4 Page Sessions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GA4 Page Sessions": {
+      "main": [
+        [
+          {
+            "node": "GA4 AI Referrals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GA4 AI Referrals": {
+      "main": [
+        [
+          {
+            "node": "Build Snapshot Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Windows (No GA4)": {
+      "main": [
+        [
+          {
+            "node": "GSC Page Performance (No GA4)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GSC Page Performance (No GA4)": {
+      "main": [
+        [
+          {
+            "node": "Build Snapshot Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Snapshot Rows": {
+      "main": [
+        [
+          {
+            "node": "Phase B Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phase B Summary": {
+      "main": [
+        [
+          {
+            "node": "Insert Snapshots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Snapshots": {
+      "main": [
+        [
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "55555555-5555-4555-8555-555555555555",

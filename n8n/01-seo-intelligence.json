@@ -2,12 +2,24 @@
   "name": "01 - SEO Intelligence v3",
   "nodes": [
     {
-      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "30 5 * * *"}]}},
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 5 * * *"
+            }
+          ]
+        }
+      },
       "id": "daily-trigger",
-      "name": "Daily 5:30 AM MT",
+      "name": "Daily 5:30 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1480, -200]
+      "position": [
+        -1480,
+        -200
+      ]
     },
     {
       "parameters": {},
@@ -15,15 +27,33 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-1480, 40]
+      "position": [
+        -1480,
+        40
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "agent-slug", "name": "agent_slug", "value": "seo-intelligence", "type": "string"},
-            {"id": "site-url", "name": "site_url", "value": "={{ $env.GSC_SITE_URL || 'https://mopshy.com/' }}", "type": "string"},
-            {"id": "run-mode", "name": "run_mode", "value": "manual", "type": "string"}
+            {
+              "id": "agent-slug",
+              "name": "agent_slug",
+              "value": "seo-intelligence",
+              "type": "string"
+            },
+            {
+              "id": "site-url",
+              "name": "site_url",
+              "value": "={{ $env.GSC_SITE_URL || 'https://mopshy.com/' }}",
+              "type": "string"
+            },
+            {
+              "id": "run-mode",
+              "name": "run_mode",
+              "value": "manual",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -32,7 +62,10 @@
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-1240, -80]
+      "position": [
+        -1240,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -42,7 +75,10 @@
       "name": "Compute Windows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1000, -80]
+      "position": [
+        -1000,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -50,8 +86,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
           ]
         },
         "options": {}
@@ -60,7 +102,10 @@
       "name": "Get SEO Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-760, -80]
+      "position": [
+        -760,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -70,7 +115,10 @@
       "name": "Validate SEO Agent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-520, -80]
+      "position": [
+        -520,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -79,10 +127,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=representation"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
           ]
         },
         "sendBody": true,
@@ -95,7 +155,10 @@
       "name": "Create Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-280, -80]
+      "position": [
+        -280,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -106,20 +169,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end, dimensions: ['query'], rowLimit: 1000 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-cur-queries",
       "name": "GSC Current Queries",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, -480]
+      "position": [
+        -40,
+        -480
+      ]
     },
     {
       "parameters": {
@@ -130,20 +201,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.prev_start, endDate: $('Compute Windows').first().json.windows.prev_end, dimensions: ['query'], rowLimit: 1000 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-prev-queries",
       "name": "GSC Previous Queries",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, -280]
+      "position": [
+        -40,
+        -280
+      ]
     },
     {
       "parameters": {
@@ -154,20 +233,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end, dimensions: ['page'], rowLimit: 1000 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-cur-pages",
       "name": "GSC Current Pages",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, -80]
+      "position": [
+        -40,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -178,20 +265,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.prev_start, endDate: $('Compute Windows').first().json.windows.prev_end, dimensions: ['page'], rowLimit: 1000 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-prev-pages",
       "name": "GSC Previous Pages",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, 120]
+      "position": [
+        -40,
+        120
+      ]
     },
     {
       "parameters": {
@@ -202,30 +297,46 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end, dimensions: ['query', 'page'], rowLimit: 2500 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "gsc-qp-rows",
       "name": "GSC Query Page Rows",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, 320]
+      "position": [
+        -40,
+        320
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $env.GA4_PROPERTY_ID }}",
               "rightValue": "",
-              "operator": {"type": "string", "operation": "notEmpty", "singleValue": true}
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
             }
           ],
           "combinator": "and"
@@ -236,7 +347,10 @@
       "name": "GA4 Configured?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-40, 560]
+      "position": [
+        -40,
+        560
+      ]
     },
     {
       "parameters": {
@@ -247,20 +361,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ dateRanges: [{ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end }], dimensions: [{ name: 'pagePath' }], metrics: [{ name: 'sessions' }, { name: 'conversions' }], limit: 500 }) }}",
-        "options": {"timeout": 60000}
+        "options": {
+          "timeout": 60000
+        }
       },
       "id": "ga4-organic",
       "name": "GA4 Organic Pages",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [200, 480]
+      "position": [
+        200,
+        480
+      ]
     },
     {
       "parameters": {
@@ -270,18 +392,26 @@
       "name": "GA4 Sessions Parsed",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 480]
+      "position": [
+        440,
+        480
+      ]
     },
     {
       "parameters": {
-        "assignments": {"assignments": []},
+        "assignments": {
+          "assignments": []
+        },
         "options": {}
       },
       "id": "ga4-skipped",
       "name": "GA4 Skipped",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [200, 660]
+      "position": [
+        200,
+        660
+      ]
     },
     {
       "parameters": {
@@ -289,16 +419,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Accept", "value": "application/xml, text/xml, */*"}
+            {
+              "name": "Accept",
+              "value": "application/xml, text/xml, */*"
+            }
           ]
         },
-        "options": {"response": {"response": {"responseFormat": "text"}}}
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "id": "fetch-sitemap",
       "name": "Fetch Sitemap",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, 800]
+      "position": [
+        -40,
+        800
+      ]
     },
     {
       "parameters": {
@@ -308,7 +450,10 @@
       "name": "Parse Sitemap URLs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [200, 800]
+      "position": [
+        200,
+        800
+      ]
     },
     {
       "parameters": {
@@ -319,7 +464,10 @@
       "name": "Gather Source Data",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [700, 160]
+      "position": [
+        700,
+        160
+      ]
     },
     {
       "parameters": {
@@ -329,7 +477,10 @@
       "name": "Analyze SEO Signals",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [940, 160]
+      "position": [
+        940,
+        160
+      ]
     },
     {
       "parameters": {
@@ -338,10 +489,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "resolution=merge-duplicates,return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -354,7 +517,10 @@
       "name": "Upsert Keywords",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1180, 160]
+      "position": [
+        1180,
+        160
+      ]
     },
     {
       "parameters": {
@@ -363,10 +529,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "resolution=merge-duplicates,return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -379,7 +557,10 @@
       "name": "Upsert Pages",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1400, 160]
+      "position": [
+        1400,
+        160
+      ]
     },
     {
       "parameters": {
@@ -388,10 +569,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -404,7 +597,10 @@
       "name": "Create SEO Tasks",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1620, 160]
+      "position": [
+        1620,
+        160
+      ]
     },
     {
       "parameters": {
@@ -413,10 +609,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -429,7 +637,10 @@
       "name": "Complete Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1840, 160]
+      "position": [
+        1840,
+        160
+      ]
     },
     {
       "parameters": {
@@ -438,10 +649,22 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -454,17 +677,45 @@
       "name": "Update Agent Last Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2060, 160]
+      "position": [
+        2060,
+        160
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "result", "name": "result", "value": "SEO Intelligence run complete", "type": "string"},
-            {"id": "summary", "name": "summary", "value": "={{ JSON.stringify($('Analyze SEO Signals').first().json.summary) }}", "type": "string"},
-            {"id": "site", "name": "site_url", "value": "={{ $('Analyze SEO Signals').first().json.site_url }}", "type": "string"},
-            {"id": "agent", "name": "agent_id", "value": "={{ $('Analyze SEO Signals').first().json.agent_id }}", "type": "string"},
-            {"id": "run", "name": "agent_run_id", "value": "={{ $('Analyze SEO Signals').first().json.agent_run_id }}", "type": "string"}
+            {
+              "id": "result",
+              "name": "result",
+              "value": "SEO Intelligence run complete",
+              "type": "string"
+            },
+            {
+              "id": "summary",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Analyze SEO Signals').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "site",
+              "name": "site_url",
+              "value": "={{ $('Analyze SEO Signals').first().json.site_url }}",
+              "type": "string"
+            },
+            {
+              "id": "agent",
+              "name": "agent_id",
+              "value": "={{ $('Analyze SEO Signals').first().json.agent_id }}",
+              "type": "string"
+            },
+            {
+              "id": "run",
+              "name": "agent_run_id",
+              "value": "={{ $('Analyze SEO Signals').first().json.agent_run_id }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -473,55 +724,330 @@
       "name": "Return Summary",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2280, 160]
+      "position": [
+        2280,
+        160
+      ]
     }
   ],
   "connections": {
-    "Daily 5:30 AM MT": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Run Config": {"main": [[{"node": "Compute Windows", "type": "main", "index": 0}]]},
-    "Compute Windows": {"main": [[{"node": "Get SEO Agent", "type": "main", "index": 0}]]},
-    "Get SEO Agent": {"main": [[{"node": "Validate SEO Agent", "type": "main", "index": 0}]]},
-    "Validate SEO Agent": {"main": [[{"node": "Create Agent Run", "type": "main", "index": 0}]]},
-    "Create Agent Run": {
-      "main": [[
-        {"node": "GSC Current Queries", "type": "main", "index": 0},
-        {"node": "GSC Previous Queries", "type": "main", "index": 0},
-        {"node": "GSC Current Pages", "type": "main", "index": 0},
-        {"node": "GSC Previous Pages", "type": "main", "index": 0},
-        {"node": "GSC Query Page Rows", "type": "main", "index": 0},
-        {"node": "GA4 Configured?", "type": "main", "index": 0},
-        {"node": "Fetch Sitemap", "type": "main", "index": 0}
-      ]]
-    },
-    "GSC Current Queries": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 0}]]},
-    "GSC Previous Queries": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 1}]]},
-    "GSC Current Pages": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 2}]]},
-    "GSC Previous Pages": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 3}]]},
-    "GSC Query Page Rows": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 4}]]},
-    "GA4 Configured?": {
+    "Daily 5:30 AM ET": {
       "main": [
-        [{"node": "GA4 Organic Pages", "type": "main", "index": 0}],
-        [{"node": "GA4 Skipped", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "GA4 Organic Pages": {"main": [[{"node": "GA4 Sessions Parsed", "type": "main", "index": 0}]]},
-    "GA4 Sessions Parsed": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 5}]]},
-    "GA4 Skipped": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 5}]]},
-    "Fetch Sitemap": {"main": [[{"node": "Parse Sitemap URLs", "type": "main", "index": 0}]]},
-    "Parse Sitemap URLs": {"main": [[{"node": "Gather Source Data", "type": "main", "index": 5}]]},
-    "Gather Source Data": {"main": [[{"node": "Analyze SEO Signals", "type": "main", "index": 0}]]},
-    "Analyze SEO Signals": {"main": [[{"node": "Upsert Keywords", "type": "main", "index": 0}]]},
-    "Upsert Keywords": {"main": [[{"node": "Upsert Pages", "type": "main", "index": 0}]]},
-    "Upsert Pages": {"main": [[{"node": "Create SEO Tasks", "type": "main", "index": 0}]]},
-    "Create SEO Tasks": {"main": [[{"node": "Complete Agent Run", "type": "main", "index": 0}]]},
-    "Complete Agent Run": {"main": [[{"node": "Update Agent Last Run", "type": "main", "index": 0}]]},
-    "Update Agent Last Run": {"main": [[{"node": "Return Summary", "type": "main", "index": 0}]]}
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Compute Windows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Windows": {
+      "main": [
+        [
+          {
+            "node": "Get SEO Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get SEO Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate SEO Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate SEO Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "GSC Current Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Previous Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Current Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Previous Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Query Page Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GA4 Configured?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GSC Current Queries": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GSC Previous Queries": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "GSC Current Pages": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "GSC Previous Pages": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "GSC Query Page Rows": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "GA4 Configured?": {
+      "main": [
+        [
+          {
+            "node": "GA4 Organic Pages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GA4 Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GA4 Organic Pages": {
+      "main": [
+        [
+          {
+            "node": "GA4 Sessions Parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GA4 Sessions Parsed": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "GA4 Skipped": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Fetch Sitemap": {
+      "main": [
+        [
+          {
+            "node": "Parse Sitemap URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Sitemap URLs": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Gather Source Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze SEO Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze SEO Signals": {
+      "main": [
+        [
+          {
+            "node": "Upsert Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Keywords": {
+      "main": [
+        [
+          {
+            "node": "Upsert Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Pages": {
+      "main": [
+        [
+          {
+            "node": "Create SEO Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create SEO Tasks": {
+      "main": [
+        [
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "22222222-2222-4222-8222-222222222223",

@@ -113,10 +113,10 @@ Do not activate the schedules immediately.
 
 After the manual end-to-end test passes, publish/activate in this order:
 
-- **02** — daily 6:30 AM America/Denver
-- **03** — daily 7:15 AM America/Denver
-- **04** — daily 8:00 AM America/Denver
-- **05** — daily 8:30 AM America/Denver
+- **02** — daily 6:30 AM America/New_York
+- **03** — daily 7:15 AM America/New_York
+- **04** — daily 8:00 AM America/New_York
+- **05** — daily 8:30 AM America/New_York
 
 Auto-merge remains disabled during the initial rollout. The publisher only creates a review PR after the quality gates pass.
 

@@ -13,7 +13,7 @@
         }
       },
       "id": "d405491a-ee3b-57e4-8754-80e48b4b64b3",
-      "name": "Weekly Sun 7:30 AM MT",
+      "name": "Weekly Sun 7:30 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -438,7 +438,7 @@
     }
   ],
   "connections": {
-    "Weekly Sun 7:30 AM MT": {
+    "Weekly Sun 7:30 AM ET": {
       "main": [
         [
           {
@@ -606,7 +606,7 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "728653ef-a7b9-5135-aaa8-e442141ca051",

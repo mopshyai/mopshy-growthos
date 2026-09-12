@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "generated": "2026-09-12",
+  "notes": "Machine-readable implementation status of the GrowthOS agent fleet. status values: READY (workflow built and validated in repo), PARTIALLY_IMPLEMENTED (exists but incomplete), MISSING (registry entry only), STUB_ONLY, BROKEN. deployed=false means the workflow has not yet been imported/activated in the n8n Cloud MOPSHY GROWTHOS project. Schedules run in America/New_York.",
+  "orchestrator": {
+    "workflow_file": "n8n/00-growthos-orchestrator.json",
+    "status": "PARTIALLY_IMPLEMENTED",
+    "deployed": false,
+    "gaps": [
+      "Dispatch Contract node sets a note but does not wire per-agent Execute Workflow calls (requires workflow IDs after n8n import)",
+      "Orchestrator does not write its own agent_runs record"
+    ]
+  },
+  "error_handler": {
+    "workflow_file": "n8n/99-error-handler.json",
+    "status": "PARTIALLY_IMPLEMENTED",
+    "deployed": false,
+    "notes": "Logs system_events and sends Telegram alert. Does not yet increment agent error_count on the failing agent or mark agent_runs failed.",
+    "gaps": [
+      "error_count increment on failing agent",
+      "failed-run status write back to agent_runs"
+    ]
+  },
+  "agents": [
+    {"slug": "seo-intelligence", "name": "SEO Intelligence", "autonomy": "green", "schedule": "daily 5:30 AM ET", "workflow_file": "n8n/01-seo-intelligence.json", "status": "READY", "deployed": false, "data_sources": ["Google Search Console", "GA4 (optional)", "sitemap"], "outputs": ["keywords upserts", "pages upserts", "daily SEO task list"]},
+    {"slug": "search-opportunity", "name": "Search Opportunity", "autonomy": "green", "schedule": "daily 6:30 AM ET", "workflow_file": "n8n/02-content-opportunity-agent.json", "status": "READY", "deployed": false, "data_sources": ["OpenAI web search", "existing opportunities"], "outputs": ["content_opportunities rows"]},
+    {"slug": "content-research", "name": "Content Research", "autonomy": "green", "schedule": "daily 7:00 AM ET", "workflow_file": "n8n/06-content-research.json", "status": "READY", "deployed": false, "data_sources": ["OpenAI web search"], "outputs": ["research packets on opportunities", "approve/backlog decisions"]},
+    {"slug": "content-production", "name": "Content Production (Writer + QA)", "autonomy": "yellow", "schedule": "daily 7:15 AM ET", "workflow_file": "n8n/03-content-writer-qa-agent.json", "status": "READY", "deployed": false, "data_sources": ["content_opportunities", "OpenAI web search"], "outputs": ["content_drafts with independent QA report"]},
+    {"slug": "content-production", "name": "Content Production (Publisher)", "autonomy": "yellow", "schedule": "daily 8:00 AM ET", "workflow_file": "n8n/04-content-github-publisher.json", "status": "READY", "deployed": false, "data_sources": ["content_drafts", "GitHub"], "outputs": ["one-file article PR on mopshyai/mopshy-ai-growth-engine", "draft status publishing"]},
+    {"slug": "content-performance", "name": "Content Performance", "autonomy": "green", "schedule": "daily 8:30 AM ET", "workflow_file": "n8n/05-content-performance-agent.json", "status": "READY", "deployed": false, "data_sources": ["GitHub PR state", "Google Search Console", "GA4 (optional)"], "outputs": ["published status reconciliation", "content_performance_snapshots"]},
+    {"slug": "internal-linking", "name": "Internal Linking", "autonomy": "yellow", "schedule": "daily 5:45 AM ET", "workflow_file": "n8n/07-internal-linking.json", "status": "READY", "deployed": false, "data_sources": ["sitemap", "live page crawl"], "outputs": ["orphan/weak/broken page tasks", "pages upserts"]},
+    {"slug": "technical-seo", "name": "Technical SEO", "autonomy": "yellow", "schedule": "daily 6:15 AM ET", "workflow_file": "n8n/08-technical-seo.json", "status": "READY", "deployed": false, "data_sources": ["sitemap", "live page crawl"], "outputs": ["technical_seo_issue tasks", "pages upserts"]},
+    {"slug": "citation-engine", "name": "Citation Engine", "autonomy": "yellow", "schedule": "daily 6:45 AM ET", "workflow_file": "n8n/09-citation-engine.json", "status": "READY", "deployed": false, "data_sources": ["directories table", "citations table"], "outputs": ["pending citations", "approval-gated submission tasks"]},
+    {"slug": "backlink-intelligence", "name": "Backlink Intelligence", "autonomy": "green", "schedule": "weekly Sun 7:30 AM ET", "workflow_file": "n8n/10-backlink-intelligence.json", "status": "READY", "deployed": false, "data_sources": ["OpenAI web search"], "outputs": ["backlink_opportunities rows"]},
+    {"slug": "founder-content", "name": "Founder Content", "autonomy": "yellow", "schedule": "daily 9:00 AM ET", "workflow_file": "n8n/11-founder-content.json", "status": "READY", "deployed": false, "data_sources": ["GitHub commits (website repo)", "published content_drafts", "OpenAI"], "outputs": ["founder_post drafts in content_assets", "review tasks"]},
+    {"slug": "social-distribution", "name": "Social Distribution", "autonomy": "yellow", "schedule": "daily 9:30 AM ET", "workflow_file": "n8n/12-social-distribution.json", "status": "READY", "deployed": false, "data_sources": ["published content_drafts", "OpenAI"], "outputs": ["social_post drafts in content_assets", "review tasks"]},
+    {"slug": "cro-intelligence", "name": "CRO Intelligence", "autonomy": "yellow", "schedule": "daily 10:00 AM ET", "workflow_file": "n8n/13-cro-intelligence.json", "status": "READY", "deployed": false, "data_sources": ["GA4 (optional, skips gracefully)"], "outputs": ["experiments rows", "experiment proposal tasks"]},
+    {"slug": "competitor-intelligence", "name": "Competitor Intelligence", "autonomy": "green", "schedule": "daily 4:30 PM ET", "workflow_file": "n8n/14-competitor-intelligence.json", "status": "READY", "deployed": false, "data_sources": ["competitors table", "OpenAI web search"], "outputs": ["competitor_events rows", "high-impact tasks"]},
+    {"slug": "reputation-intelligence", "name": "Reputation Intelligence", "autonomy": "green", "schedule": "hourly", "workflow_file": "n8n/15-reputation-intelligence.json", "status": "READY", "deployed": false, "data_sources": ["OpenAI web search"], "outputs": ["mentions rows", "response tasks"]},
+    {"slug": "lead-intent", "name": "Lead Intent", "autonomy": "green", "schedule": "hourly at :15", "workflow_file": "n8n/16-lead-intent.json", "status": "READY", "deployed": false, "data_sources": ["HubSpot (optional, skips gracefully)"], "outputs": ["leads upserts with intent_score", "hot-lead tasks"]},
+    {"slug": "growth-director", "name": "Growth Director", "autonomy": "green", "schedule": "daily 7:30 AM ET", "workflow_file": "n8n/17-growth-director.json", "status": "PARTIALLY_IMPLEMENTED", "deployed": false, "data_sources": ["tasks", "agents", "agent_runs"], "outputs": ["daily_briefs upsert", "Telegram brief"], "gaps": ["Rule-based prioritizer; does not yet consume per-agent structured findings to produce an evidence/confidence/effort-scored decision queue"]}
+  ],
+  "schema_notes": {
+    "growth_tasks": "Implemented as the tasks table (001_core.sql) — reused, no duplicate concept.",
+    "publication_status": "content_drafts.status + github_pr_url + published_url.",
+    "conversion_attribution": "leads.metadata + metrics table; designed so CRM/deal data can attach later."
+  }
+}
