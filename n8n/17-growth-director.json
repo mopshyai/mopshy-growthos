@@ -1,0 +1,553 @@
+{
+  "name": "17 - Growth Director Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "d16b424e-cf4b-5444-af63-a378669c5ade",
+      "name": "Daily 7:30 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1480,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d7d0efff-58cc-5de1-8bd9-336d24a21b74",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9180fe81-9787-5ee2-bff2-5c9427344f96",
+              "name": "agent_slug",
+              "value": "growth-director",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d0477eef-c931-5ada-ba53-b5bfd0377747",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1240,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.growth-director&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6d0f1b01-c7f0-5079-a460-ca0080f4d4e2",
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent growth-director was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "id": "4f2c4164-0857-5096-ba6d-379926ed9888",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, trigger: 'scheduled' } }) }}"
+      },
+      "id": "bef6aaa7-9fe6-54f4-b368-7d152e05f24e",
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?select=name,slug,status,autonomy,schedule,last_run_at,success_rate,error_count' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "3d8b3213-cb1a-53c3-801c-b7d564b17556",
+      "name": "Gather Agent Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?status=in.(queued,awaiting_approval)&select=task_type,title,priority,created_at&limit=300' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "f1918654-e799-5365-b471-f309248142ba",
+      "name": "Gather Open Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?started_at=gte.' + $now.minus({ hours: 24 }).toISO() + '&select=status,tasks_created,error' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "55f9e6a5-eabf-5141-873b-2c553555b04f",
+      "name": "Gather Recent Runs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const agents = $('Gather Agent Health').all().map(i => i.json).filter(a => a && a.slug);\nconst tasks = $('Gather Open Tasks').all().map(i => i.json).filter(t => t && t.task_type);\nconst runs = items.map(i => i.json).filter(r => r && r.status);\nconst byPrio = { P0: 0, P1: 0, P2: 0, P3: 0 };\ntasks.forEach(t => { byPrio[t.priority] = (byPrio[t.priority] || 0) + 1; });\nconst failedRuns = runs.filter(r => r.status === 'failed' || r.error).length;\nconst completedRuns = runs.filter(r => r.status === 'completed').length;\nconst tasksCreated = runs.reduce((s, r) => s + (r.tasks_created || 0), 0);\nconst hourBudget = (a) => a.schedule === 'hourly' ? 6 : a.schedule === 'daily' ? 36 : 180;\nconst stale = agents.filter(a => a.status === 'active' && a.schedule && a.schedule !== 'on-demand' && (!a.last_run_at || (Date.now() - new Date(a.last_run_at)) / 3600000 > hourBudget(a)));\nconst p1 = tasks.filter(t => t.priority === 'P1').slice(0, 5).map(t => t.title);\nconst lines = [];\nlines.push('GrowthOS daily brief — ' + new Date().toISOString().slice(0, 10));\nlines.push('Open tasks: ' + tasks.length + ' (P0: ' + byPrio.P0 + ', P1: ' + byPrio.P1 + ', P2: ' + byPrio.P2 + ', P3: ' + byPrio.P3 + ')');\nlines.push('Agent runs last 24h: ' + completedRuns + ' completed, ' + failedRuns + ' failed, ' + tasksCreated + ' tasks created');\nif (p1.length) lines.push('Top priorities: ' + p1.join(' | '));\nif (stale.length) lines.push('Stale agents (no run within schedule budget): ' + stale.map(a => a.slug).join(', '));\nconst brief = { brief_date: new Date().toISOString().slice(0, 10), executive_summary: lines.join('\\n'), priorities: p1, metrics: { open_tasks: tasks.length, by_priority: byPrio, runs_24h: { completed: completedRuns, failed: failedRuns }, tasks_created_24h: tasksCreated, stale_agents: stale.map(a => a.slug) } };\nreturn [{ json: { brief, telegram_message: lines.join('\\n'), summary: { open_tasks: tasks.length, p1_open: byPrio.P1, runs_24h_completed: completedRuns, runs_24h_failed: failedRuns, stale_agents: stale.length }, tasks_created: 0 } }];"
+      },
+      "id": "8e00cded-477e-5032-9f46-398527a8af3c",
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/daily_briefs?on_conflict=brief_date' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify([$('Build Run Summary').first().json.brief]) }}"
+      },
+      "id": "4ce1567e-cc6b-5ad3-9779-8bfd99d949d0",
+      "name": "Upsert Daily Brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $('Build Run Summary').first().json.telegram_message }}",
+        "additionalFields": {}
+      },
+      "id": "68a9d785-d06e-53a4-8c3c-541429452bc1",
+      "name": "Send Telegram Brief",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        680,
+        -40
+      ],
+      "webhookId": "eaee5a0c-70f8-582c-9d3b-552125695cf7"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
+      },
+      "id": "2b64a2cc-5db6-5820-93f1-07d10d918578",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
+      },
+      "id": "c86b0692-0621-5de7-8bdf-5437adf6b713",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f585ea1-7d52-5dc0-ab69-b4fbe783fbb9",
+              "name": "result",
+              "value": "17 - Growth Director Agent run complete",
+              "type": "string"
+            },
+            {
+              "id": "cb29460d-9161-5c06-b353-cf7183a6f359",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Build Run Summary').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "6dc38008-9c51-5ec2-b33c-061447403182",
+              "name": "agent_run_id",
+              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29ff1b8d-3a0c-5814-83eb-5a725535bc27",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3880,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 7:30 AM MT": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Gather Agent Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Agent Health": {
+      "main": [
+        [
+          {
+            "node": "Gather Open Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Open Tasks": {
+      "main": [
+        [
+          {
+            "node": "Gather Recent Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Recent Runs": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Upsert Daily Brief",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Telegram Brief",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "51bc7111-bf4e-5d8e-b84a-f495ef1ae0a6",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

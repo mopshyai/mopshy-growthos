@@ -1,0 +1,756 @@
+{
+  "name": "12 - Social Distribution Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5bdee25e-7648-5109-a5a0-a7f07b8fc8f7",
+      "name": "Daily 9:30 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1480,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d7d0efff-58cc-5de1-8bd9-336d24a21b74",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9180fe81-9787-5ee2-bff2-5c9427344f96",
+              "name": "agent_slug",
+              "value": "social-distribution",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d0477eef-c931-5ada-ba53-b5bfd0377747",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1240,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.social-distribution&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6d0f1b01-c7f0-5079-a460-ca0080f4d4e2",
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent social-distribution was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "id": "4f2c4164-0857-5096-ba6d-379926ed9888",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, trigger: 'scheduled' } }) }}"
+      },
+      "id": "bef6aaa7-9fe6-54f4-b368-7d152e05f24e",
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?status=eq.published&published_at=gte.' + $now.minus({ days: 7 }).toISO() + '&select=id,slug,title,excerpt,published_at' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "1972db29-18b3-563c-b540-19a1462694a1",
+      "name": "Get Published Recent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_assets?content_type=eq.social_post&select=title,metadata&order=created_at.desc&limit=100' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "2d102ae3-f61c-5ad8-8109-a99be5241742",
+      "name": "Get Existing Social",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const published = $('Get Published Recent').all().map(i => i.json).filter(d => d && d.slug);\nconst existing = new Set($('Get Existing Social').all().map(i => i.json && i.json.metadata && i.json.metadata.source_slug).filter(Boolean));\nconst targets = published.filter(d => !existing.has(d.slug));\nreturn [{ json: { targets } }];"
+      },
+      "id": "b159bd1a-170a-517d-9998-8841bd6f64dd",
+      "name": "Plan Social",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.targets.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "12193dee-49d9-5524-b9f3-78e780a1931d",
+      "name": "Has Targets?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.targets.map(t => ({ json: t }));"
+      },
+      "id": "bdc453fe-0e5d-5ea4-941c-ab32284eebad",
+      "name": "Explode Targets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/responses",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, input: `Adapt this published Mopshy article into social posts. ARTICLE: ${JSON.stringify($json)}. Write 3 variants: a LinkedIn post (operator voice, concrete insight, 120-200 words, no hashtag stuffing), an X/Twitter post (under 280 characters), and a 2-3 sentence newsletter blurb. Ground everything in the article content; invent nothing. Return ONLY JSON: {posts:[{platform:'linkedin'|'x'|'newsletter', hook, body, cta}]}` }) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "options": {
+          "timeout": 240
+        }
+      },
+      "id": "70fc11c7-0763-5905-8fc9-5940d1a60b60",
+      "name": "Adapt Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parseResp = (r) => { const text = r.output_text || (r.output || []).flatMap(o => o.content || []).find(c => c.type === 'output_text')?.text || ''; let d; try { d = JSON.parse(text); } catch (e) { const m = text.match(/\\{[\\s\\S]*\\}/); if (!m) throw new Error('Model did not return JSON'); d = JSON.parse(m[0]); } return d; };\nreturn [{ json: { source_slug: $('Explode Targets').item.json.slug, posts: (parseResp(items[0].json).posts || []) } }];"
+      },
+      "id": "c991dac1-a4c7-5a82-aa00-cbd14c8ef693",
+      "name": "Parse Social Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const mk = (task_type, priority, title, description, payload, approval) => ({ task_type, priority, title, description, confidence: 0.7, expected_impact: (payload && payload.expected_impact) || null, status: 'queued', requires_approval: !!approval, payload: payload || {} });\nconst dedupeTitles = (candidates, openItems) => { const open = new Set(openItems.map(t => t.title)); return candidates.filter(t => !open.has(t.title)); };\nconst results = items.map(i => i.json);\nconst assets = [], tasks = [];\nlet adapted = 0;\nfor (const r of results) {\n  if (!r || !r.source_slug) continue;\n  for (const p of (r.posts || [])) {\n    adapted++;\n    const today = new Date().toISOString().slice(0, 10);\n    assets.push({ content_type: 'social_post', title: (p.hook || 'Social post').slice(0, 120), slug: 'social-' + today + '-' + r.source_slug.slice(0, 40) + '-' + adapted, status: 'draft', body: String(p.body || ''), research: {}, metadata: { platform: p.platform, source_slug: r.source_slug, cta: p.cta || null, adapted_at: today } });\n  }\n}\nfor (const a of assets) tasks.push(mk('review_social_post', 'P2', 'Review social post: ' + a.title.slice(0, 80), 'Platform-adapted draft of a published Mopshy article. Review and approve before posting.', { slug: a.slug, platform: a.metadata.platform, source_slug: a.metadata.source_slug, expected_impact: 'distribution' }, true));\nconst deduped = dedupeTitles(tasks, $('Get Open Social Tasks').all().map(i => i.json));\nreturn [{ json: { asset_inserts: assets, tasks: deduped, summary: { posts_adapted: adapted, approval_tasks: deduped.length }, tasks_created: deduped.length } }];"
+      },
+      "id": "8e00cded-477e-5032-9f46-398527a8af3c",
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?task_type=eq.review_social_post&status=in.(queued,awaiting_approval)&select=title&limit=500' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6154aea2-7d84-52e5-84b5-dbb57e077769",
+      "name": "Get Open Social Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_assets' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Build Run Summary').first().json.asset_inserts) }}"
+      },
+      "id": "fa0ea5a7-8417-5dc9-ba18-d15fe2532d7e",
+      "name": "Insert Social Assets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('Build Run Summary').first().json.tasks.map(t => ({ json: t }));"
+      },
+      "id": "f8e2dc78-4a90-56fa-b058-f596f8511289",
+      "name": "Explode Social Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(items.map(t => ({ ...t.json, created_by_agent: $('Validate Agent').first().json.id }))) }}"
+      },
+      "id": "5d5139b3-696b-578e-b7d0-0aef539877f1",
+      "name": "Insert Social Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
+      },
+      "id": "2b64a2cc-5db6-5820-93f1-07d10d918578",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
+      },
+      "id": "c86b0692-0621-5de7-8bdf-5437adf6b713",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f585ea1-7d52-5dc0-ab69-b4fbe783fbb9",
+              "name": "result",
+              "value": "12 - Social Distribution Agent run complete",
+              "type": "string"
+            },
+            {
+              "id": "cb29460d-9161-5c06-b353-cf7183a6f359",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Build Run Summary').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "6dc38008-9c51-5ec2-b33c-061447403182",
+              "name": "agent_run_id",
+              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29ff1b8d-3a0c-5814-83eb-5a725535bc27",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3880,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 9:30 AM MT": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Published Recent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Published Recent": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Social",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Social": {
+      "main": [
+        [
+          {
+            "node": "Plan Social",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Social": {
+      "main": [
+        [
+          {
+            "node": "Has Targets?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Targets?": {
+      "main": [
+        [
+          {
+            "node": "Explode Targets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Targets": {
+      "main": [
+        [
+          {
+            "node": "Adapt Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adapt Content": {
+      "main": [
+        [
+          {
+            "node": "Parse Social Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Social Posts": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Get Open Social Tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Social Tasks": {
+      "main": [
+        [
+          {
+            "node": "Insert Social Assets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Explode Social Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Social Tasks": {
+      "main": [
+        [
+          {
+            "node": "Insert Social Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "5a632623-ac5f-55f6-881f-09d089c91710",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

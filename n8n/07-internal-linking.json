@@ -1,0 +1,749 @@
+{
+  "name": "07 - Internal Linking Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "45 5 * * *"
+            }
+          ]
+        }
+      },
+      "id": "950e92ea-5ba3-5de7-ae42-edd5b2ff19c9",
+      "name": "Daily 5:45 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1480,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d7d0efff-58cc-5de1-8bd9-336d24a21b74",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9180fe81-9787-5ee2-bff2-5c9427344f96",
+              "name": "agent_slug",
+              "value": "internal-linking",
+              "type": "string"
+            },
+            {
+              "id": "934ef892-010d-5b7e-a94c-e7d1f1c175ca",
+              "name": "site_url",
+              "value": "={{ $env.GSC_SITE_URL || 'https://mopshy.com/' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d0477eef-c931-5ada-ba53-b5bfd0377747",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1240,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.internal-linking&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6d0f1b01-c7f0-5079-a460-ca0080f4d4e2",
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent internal-linking was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "id": "4f2c4164-0857-5096-ba6d-379926ed9888",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, trigger: 'scheduled' } }) }}"
+      },
+      "id": "bef6aaa7-9fe6-54f4-b368-7d152e05f24e",
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ ($('Run Config').first().json.site_url || 'https://mopshy.com/').replace(/\\/+$/, '') + '/sitemap.xml' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/xml, text/xml, */*"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "e9c8a797-77ee-5f5a-9839-9eef10c3f0e7",
+      "name": "Get Sitemap",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = items[0].json.data || '';\nconst locs = [...raw.matchAll(/<loc>\\s*([^<\\s]+)\\s*<\\/loc>/gi)].map(m => m[1]);\nconst sitemap_urls = [...new Set(locs)].slice(0, 500);\nif (!sitemap_urls.length) { throw new Error('Sitemap returned no URLs.'); }\nreturn [{ json: { sitemap_urls } }];"
+      },
+      "id": "fd8b6ae9-7a03-585f-9d09-b17055ca015a",
+      "name": "Parse Sitemap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/pages?select=url,last_crawled_at&limit=500' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "c77418a9-b92f-511a-8751-8b138741f30e",
+      "name": "Get Known Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const siteUrl = $('Run Config').first().json.site_url || 'https://mopshy.com/';\nconst sitemap = $('Parse Sitemap').first().json.sitemap_urls;\nconst known = new Map($('Get Known Pages').all().map(i => [i.json.url, i.json.last_crawled_at]));\nconst batch = sitemap.map(u => ({ url: u, last: known.get(u) || null }))\n  .sort((a, b) => new Date(a.last || 0) - new Date(b.last || 0)).slice(0, 25);\nreturn batch.map(b => ({ json: b }));"
+      },
+      "id": "1860dba4-a165-58bd-a55d-83fa5748fc91",
+      "name": "Pick Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "MopshyGrowthOS/1.0 (internal audit)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "7b6e5c5c-3178-5bdb-bfed-497d2a2e7ee4",
+      "name": "Fetch Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        -80
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const siteUrl = $('Run Config').first().json.site_url || 'https://mopshy.com/';\nlet host = 'mopshy.com'; try { host = new URL(siteUrl).hostname; } catch (e) {}\nconst batch = $('Pick Batch').all().map(i => i.json);\nconst out = [];\nfor (let i = 0; i < batch.length; i++) {\n  const r = (items[i] && items[i].json) || {};\n  const url = batch[i].url;\n  if (r.error) { out.push({ json: { url, failed: true, status: r.statusCode || null, internal_links: [], internal_count: 0 } }); continue; }\n  const html = String(r.data || '');\n  const hrefs = [...html.matchAll(/<a\\s[^>]*href=[\"']([^\"'#]+)[\"']/gi)].map(m => m[1]);\n  const norm = (h) => { try { const u = new URL(h, url); if (u.hostname !== host && u.hostname !== 'www.' + host) return null; u.hash = ''; return u.origin + u.pathname; } catch (e) { return null; } };\n  const internal = [...new Set(hrefs.map(norm).filter(Boolean))];\n  const titleM = html.match(/<title[^>]*>([^<]*)<\\/title>/i);\n  out.push({ json: { url, failed: false, title: titleM ? titleM[1].trim().slice(0, 200) : null, internal_links: internal, internal_count: internal.length } });\n}\nreturn out;"
+      },
+      "id": "26b9fd71-279d-5ae6-bdf1-f2b4e372f890",
+      "name": "Parse Link Graph",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pages = items.map(i => i.json);\nreturn [{ json: { pages } }];"
+      },
+      "id": "47bed4e6-3950-537d-be78-426554e83491",
+      "name": "Reduce To One",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?task_type=in.(internal_orphan,internal_link_fix,internal_broken_page)&status=in.(queued,awaiting_approval)&select=title&limit=500' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "8531925b-d1e5-52f7-bb5e-0198ed7107ad",
+      "name": "Get Open Link Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const mk = (task_type, priority, title, description, payload, approval) => ({ task_type, priority, title, description, confidence: 0.7, expected_impact: (payload && payload.expected_impact) || null, status: 'queued', requires_approval: !!approval, payload: payload || {} });\nconst dedupeTitles = (candidates, openItems) => { const open = new Set(openItems.map(t => t.title)); return candidates.filter(t => !open.has(t.title)); };\nconst pages = $('Reduce To One').first().json.pages;\nconst now = new Date().toISOString();\nconst page_upserts = pages.map(p => ({ url: p.url, title: p.title || null, last_crawled_at: now, metrics: { internal_link_count: p.internal_count || 0, internal_links: (p.internal_links || []).slice(0, 50), crawl_error: p.failed ? (p.status || 'error') : null } }));\nconst linkTargets = new Set();\npages.forEach(p => (p.internal_links || []).forEach(u => linkTargets.add(u)));\nconst crawled = new Set(pages.map(p => p.url));\nconst sitemap = $('Parse Sitemap').first().json.sitemap_urls;\nconst tasks = [];\nfor (const u of sitemap) {\n  if (u.replace(/\\/$/, '') === ($('Run Config').first().json.site_url || '').replace(/\\/$/, '')) continue;\n  if (!linkTargets.has(u.replace(/\\/$/, '')) && crawled.has(u)) {\n    tasks.push(mk('internal_orphan', 'P3', 'Internal linking: ' + u + ' is an orphan', 'Page is in the sitemap and was crawled, but no crawled page links to it (sample of 25 pages). Add internal links from related pages.', { url: u, expected_impact: 'crawl depth and equity flow' }, true));\n  }\n}\nfor (const p of pages) {\n  if (p.failed) tasks.push(mk('internal_broken_page', 'P1', 'Unreachable page: ' + p.url, 'Page fetch failed during internal linking audit (status ' + (p.status || 'error') + '). Fix availability or remove/redirect.', { url: p.url, status: p.status, expected_impact: 'protect rankings and UX' }, true));\n  else if ((p.internal_count || 0) < 2) tasks.push(mk('internal_link_fix', 'P3', 'Weakly linked page: ' + p.url, 'Page contains fewer than 2 internal links. Add contextual links to related guides and commercial pages.', { url: p.url, internal_count: p.internal_count, expected_impact: 'stronger information architecture' }, true));\n}\nconst deduped = dedupeTitles(tasks, $('Get Open Link Tasks').all().map(i => i.json));\nreturn [{ json: { page_upserts, tasks: deduped.slice(0, 25), summary: { pages_crawled: pages.length, crawl_failures: pages.filter(p => p.failed).length, orphans_found: deduped.filter(t => t.task_type === 'internal_orphan').length, weak_pages: deduped.filter(t => t.task_type === 'internal_link_fix').length, tasks_created: deduped.length }, tasks_created: deduped.length } }];"
+      },
+      "id": "8e00cded-477e-5032-9f46-398527a8af3c",
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/pages?on_conflict=url' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Build Run Summary').first().json.page_upserts) }}"
+      },
+      "id": "9180ef01-35d3-5c22-8a7c-51e85e72fd36",
+      "name": "Upsert Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('Build Run Summary').first().json.tasks.map(t => ({ json: t }));"
+      },
+      "id": "3a160f5a-bac1-50b5-a2a3-1a9609cab3c4",
+      "name": "Explode Link Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(items.map(t => ({ ...t.json, created_by_agent: $('Validate Agent').first().json.id }))) }}"
+      },
+      "id": "57ff8ba7-affa-5c2d-b139-49115a4382b7",
+      "name": "Insert Link Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
+      },
+      "id": "2b64a2cc-5db6-5820-93f1-07d10d918578",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
+      },
+      "id": "c86b0692-0621-5de7-8bdf-5437adf6b713",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f585ea1-7d52-5dc0-ab69-b4fbe783fbb9",
+              "name": "result",
+              "value": "07 - Internal Linking Agent run complete",
+              "type": "string"
+            },
+            {
+              "id": "cb29460d-9161-5c06-b353-cf7183a6f359",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Build Run Summary').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "6dc38008-9c51-5ec2-b33c-061447403182",
+              "name": "agent_run_id",
+              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29ff1b8d-3a0c-5814-83eb-5a725535bc27",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3880,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 5:45 AM MT": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sitemap": {
+      "main": [
+        [
+          {
+            "node": "Parse Sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Sitemap": {
+      "main": [
+        [
+          {
+            "node": "Get Known Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Known Pages": {
+      "main": [
+        [
+          {
+            "node": "Pick Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Batch": {
+      "main": [
+        [
+          {
+            "node": "Fetch Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Link Graph",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Link Graph": {
+      "main": [
+        [
+          {
+            "node": "Reduce To One",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reduce To One": {
+      "main": [
+        [
+          {
+            "node": "Get Open Link Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Link Tasks": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Upsert Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Explode Link Tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Link Tasks": {
+      "main": [
+        [
+          {
+            "node": "Insert Link Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "03dbe9a6-126b-5191-ac19-e86886fc8a46",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

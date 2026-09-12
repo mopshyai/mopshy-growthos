@@ -1,0 +1,617 @@
+{
+  "name": "10 - Backlink Intelligence Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "d405491a-ee3b-57e4-8754-80e48b4b64b3",
+      "name": "Weekly Sun 7:30 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1480,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d7d0efff-58cc-5de1-8bd9-336d24a21b74",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9180fe81-9787-5ee2-bff2-5c9427344f96",
+              "name": "agent_slug",
+              "value": "backlink-intelligence",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d0477eef-c931-5ada-ba53-b5bfd0377747",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1240,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.backlink-intelligence&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6d0f1b01-c7f0-5079-a460-ca0080f4d4e2",
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent backlink-intelligence was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "id": "4f2c4164-0857-5096-ba6d-379926ed9888",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, trigger: 'scheduled' } }) }}"
+      },
+      "id": "bef6aaa7-9fe6-54f4-b368-7d152e05f24e",
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/backlink_opportunities?select=url,domain&order=created_at.desc&limit=300' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "b5a4d617-e22b-5e7c-aad9-32ad7c9548fc",
+      "name": "Get Existing Backlinks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = items.map(i => i.json).filter(r => r && (r.url || r.domain));\nreturn [{ json: { existing: rows } }];"
+      },
+      "id": "0678a7b8-6bed-5a6a-bb4b-83e9ae8711c6",
+      "name": "Reduce Backlinks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/responses",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, tools: [{ type: 'web_search' }], input: `You are Mopshy's backlink intelligence analyst. Search the web for RECENT, REAL unlinked mentions of Mopshy (mopshy.com), an AI automation agency: discussions, articles, listicles, forum threads, social posts that mention Mopshy without linking to it. Only report results you actually found; never fabricate URLs. Return ONLY JSON: {opportunities:[{domain, url, opportunity_type:'unlinked_mention', rationale, relevance_score:0-100, authority_score:0-100}]}` }) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "options": {
+          "timeout": 300
+        }
+      },
+      "id": "885a0cca-fa78-5745-af84-f9fbf2f6daee",
+      "name": "Hunt Unlinked Mentions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/responses",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, tools: [{ type: 'web_search' }], input: `You are Mopshy's backlink intelligence analyst. Find REAL resource pages, directories, 'best AI automation agencies' lists, n8n/Make/Zapier partner or agency directories, and guest-post pages where mopshy.com could plausibly earn a legitimate editorial link. No spam, no link farms, no paid-link schemes. Only report results you actually found. Return ONLY JSON: {opportunities:[{domain, url, opportunity_type:'resource_page'|'directory'|'guest_post', rationale, relevance_score:0-100, authority_score:0-100}]}` }) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "options": {
+          "timeout": 300
+        }
+      },
+      "id": "de70132a-0399-5b7f-8446-392cfcc90547",
+      "name": "Hunt Resource Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const mk = (task_type, priority, title, description, payload, approval) => ({ task_type, priority, title, description, confidence: 0.7, expected_impact: (payload && payload.expected_impact) || null, status: 'queued', requires_approval: !!approval, payload: payload || {} });\nconst dedupeTitles = (candidates, openItems) => { const open = new Set(openItems.map(t => t.title)); return candidates.filter(t => !open.has(t.title)); };\nconst parseResp = (r) => { const text = r.output_text || (r.output || []).flatMap(o => o.content || []).find(c => c.type === 'output_text')?.text || ''; let d; try { d = JSON.parse(text); } catch (e) { const m = text.match(/\\{[\\s\\S]*\\}/); if (!m) throw new Error('Model did not return JSON'); d = JSON.parse(m[0]); } return d; };\nconst existing = new Set($('Reduce Backlinks').first().json.existing.map(r => (r.url || '').replace(/\\/$/, '')));\nconst hunts = [['Hunt Unlinked Mentions', 'Hunt Resource Pages']];\nconst found = [];\nfor (const node of hunts.flat()) { try { const d = parseResp($(node).first().json); for (const o of (d.opportunities || [])) if (o && o.url) found.push(o); } catch (e) {}\n}\nconst seen = new Set(); const inserts = [];\nfor (const o of found) {\n  const u = String(o.url).replace(/\\/$/, '');\n  if (seen.has(u) || existing.has(u)) continue;\n  seen.add(u);\n  const rel = Number(o.relevance_score) || 50, auth = Number(o.authority_score) || 50;\n  inserts.push({ domain: o.domain || new URL(u).hostname, url: u, opportunity_type: o.opportunity_type || 'unlinked_mention', relevance_score: rel, authority_score: auth, total_score: Math.round((rel + auth) / 2), contact_data: { rationale: o.rationale || null }, status: 'new' });\n}\ninserts.sort((a, b) => b.total_score - a.total_score);\nconst top = inserts.slice(0, 25);\nconst tasks = top.filter(o => o.total_score >= 60).slice(0, 10).map(o => mk('backlink_opportunity', 'P3', 'Pursue backlink: ' + o.domain, o.opportunity_type.replace('_', ' ') + ' worth pursuing through the outreach system. ' + (o.contact_data.rationale || ''), { url: o.url, type: o.opportunity_type, total_score: o.total_score, expected_impact: 'referring domains' }, false));\nreturn [{ json: { backlink_inserts: top, tasks, summary: { opportunities_found: found.length, new_stored: top.length, tasks_created: tasks.length }, tasks_created: tasks.length } }];"
+      },
+      "id": "8e00cded-477e-5032-9f46-398527a8af3c",
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/backlink_opportunities' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Build Run Summary').first().json.backlink_inserts) }}"
+      },
+      "id": "399cb6ea-fbfc-5911-9f0c-2c6981bc9d96",
+      "name": "Insert Backlinks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('Build Run Summary').first().json.tasks.map(t => ({ json: t }));"
+      },
+      "id": "2311db09-80c2-5a39-86ad-335babb7b330",
+      "name": "Explode Backlink Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(items.map(t => ({ ...t.json, created_by_agent: $('Validate Agent').first().json.id }))) }}"
+      },
+      "id": "862c3c74-f27e-5f0c-86eb-91607ffcb122",
+      "name": "Insert Backlink Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
+      },
+      "id": "2b64a2cc-5db6-5820-93f1-07d10d918578",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
+      },
+      "id": "c86b0692-0621-5de7-8bdf-5437adf6b713",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f585ea1-7d52-5dc0-ab69-b4fbe783fbb9",
+              "name": "result",
+              "value": "10 - Backlink Intelligence Agent run complete",
+              "type": "string"
+            },
+            {
+              "id": "cb29460d-9161-5c06-b353-cf7183a6f359",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Build Run Summary').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "6dc38008-9c51-5ec2-b33c-061447403182",
+              "name": "agent_run_id",
+              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29ff1b8d-3a0c-5814-83eb-5a725535bc27",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3880,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Weekly Sun 7:30 AM MT": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Backlinks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Backlinks": {
+      "main": [
+        [
+          {
+            "node": "Reduce Backlinks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reduce Backlinks": {
+      "main": [
+        [
+          {
+            "node": "Hunt Unlinked Mentions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hunt Unlinked Mentions": {
+      "main": [
+        [
+          {
+            "node": "Hunt Resource Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hunt Resource Pages": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Insert Backlinks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Explode Backlink Tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Backlink Tasks": {
+      "main": [
+        [
+          {
+            "node": "Insert Backlink Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "728653ef-a7b9-5135-aaa8-e442141ca051",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

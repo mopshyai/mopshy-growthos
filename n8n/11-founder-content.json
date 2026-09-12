@@ -1,0 +1,754 @@
+{
+  "name": "11 - Founder Content Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "6d3c4837-742d-5511-b37e-697b34ca4017",
+      "name": "Daily 9:00 AM MT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1480,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d7d0efff-58cc-5de1-8bd9-336d24a21b74",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9180fe81-9787-5ee2-bff2-5c9427344f96",
+              "name": "agent_slug",
+              "value": "founder-content",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d0477eef-c931-5ada-ba53-b5bfd0377747",
+      "name": "Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1240,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.founder-content&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "6d0f1b01-c7f0-5079-a460-ca0080f4d4e2",
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent founder-content was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "id": "4f2c4164-0857-5096-ba6d-379926ed9888",
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, trigger: 'scheduled' } }) }}"
+      },
+      "id": "bef6aaa7-9fe6-54f4-b368-7d152e05f24e",
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.github.com/repos/mopshyai/mopshy-ai-growth-engine/commits?per_page=30&since=' + encodeURIComponent($now.minus({ days: 7 }).toISO()) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi"
+      },
+      "id": "0a184c0b-3196-58ff-8002-8d166b2f30c3",
+      "name": "Get Recent Commits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?status=eq.published&order=published_at.desc&limit=10&select=id,slug,title,published_at' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "12d368e2-629e-5353-8743-00e1931f5072",
+      "name": "Get Recent Published",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const commits = $('Get Recent Commits').all().map(i => i.json).filter(c => c && c.sha)\n  .map(c => ({ sha: String(c.sha).slice(0, 8), message: (c.commit && c.commit.message || '').split('\\n')[0], date: c.commit && c.commit.author && c.commit.author.date }));\nconst published = $('Get Recent Published').all().map(i => i.json).filter(d => d && d.id)\n  .map(d => ({ slug: d.slug, title: d.title, published_at: d.published_at }));\nreturn [{ json: { commits, published, evidence_count: commits.length + published.length } }];"
+      },
+      "id": "92af032b-8821-5b23-a874-bb291e683581",
+      "name": "Compile Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.evidence_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4bcd65b6-a2ab-539d-a274-3d1cd37d49d0",
+      "name": "Has Evidence?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Compile Evidence').first().json }];"
+      },
+      "id": "a978a638-c1d1-547a-ae94-147bca0f4dee",
+      "name": "Explode Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/responses",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, input: `Turn this REAL Mopshy work evidence into 3 founder-post drafts (one LinkedIn post, one X/Twitter post, one short newsletter blurb). Ground every claim ONLY in the evidence provided; never invent customer results, metrics, quotes, or client names. Voice: operator-to-operator, specific, no hype, no engagement bait. EVIDENCE: ${JSON.stringify($('Compile Evidence').first().json)}. Return ONLY JSON: {posts:[{platform:'linkedin'|'x'|'newsletter', hook, body, cta, evidence_refs:[string]}]}` }) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "options": {
+          "timeout": 240
+        }
+      },
+      "id": "da3247cb-0925-5882-93d9-e765aa6e26b6",
+      "name": "Founder Ideation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const parseResp = (r) => { const text = r.output_text || (r.output || []).flatMap(o => o.content || []).find(c => c.type === 'output_text')?.text || ''; let d; try { d = JSON.parse(text); } catch (e) { const m = text.match(/\\{[\\s\\S]*\\}/); if (!m) throw new Error('Model did not return JSON'); d = JSON.parse(m[0]); } return d; };\nreturn [{ json: { posts: (parseResp(items[0].json).posts || []) } }];"
+      },
+      "id": "673d1c04-7547-5d60-b0b7-7f0a6c276563",
+      "name": "Parse Founder Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const mk = (task_type, priority, title, description, payload, approval) => ({ task_type, priority, title, description, confidence: 0.7, expected_impact: (payload && payload.expected_impact) || null, status: 'queued', requires_approval: !!approval, payload: payload || {} });\nconst dedupeTitles = (candidates, openItems) => { const open = new Set(openItems.map(t => t.title)); return candidates.filter(t => !open.has(t.title)); };\nconst results = items.map(i => i.json);\nconst assets = [], tasks = [];\nlet adapted = 0;\nfor (const r of results) {\n  for (const p of (r.posts || [])) {\n    adapted++;\n    const today = new Date().toISOString().slice(0, 10);\n    assets.push({ content_type: 'founder_post', title: (p.hook || 'Founder post').slice(0, 120), slug: 'founder-' + today + '-' + String(p.platform || 'post') + '-' + adapted, status: 'draft', body: String(p.body || ''), research: { evidence_refs: p.evidence_refs || [], cta: p.cta || null }, metadata: { platform: p.platform, hook: p.hook, drafted_at: today } });\n  }\n}\nfor (const a of assets) tasks.push(mk('review_founder_post', 'P2', 'Review founder post: ' + a.title.slice(0, 80), 'Founder-grade draft generated from real Mopshy work evidence. Review for voice, accuracy, and approval before any posting.', { slug: a.slug, platform: a.metadata.platform, expected_impact: 'founder-led distribution' }, true));\nconst deduped = dedupeTitles(tasks, $('Get Open Founder Tasks').all().map(i => i.json));\nreturn [{ json: { asset_inserts: assets, tasks: deduped, summary: { posts_drafted: adapted, approval_tasks: deduped.length }, tasks_created: deduped.length } }];"
+      },
+      "id": "8e00cded-477e-5032-9f46-398527a8af3c",
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?task_type=eq.review_founder_post&status=in.(queued,awaiting_approval)&select=title&limit=500' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "ae7cdedb-eb9d-5094-8421-85db3059d937",
+      "name": "Get Open Founder Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_assets' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Get Open Founder Tasks') && $('Build Run Summary').first().json.asset_inserts) }}"
+      },
+      "id": "8ad36878-baf4-5b36-8c1a-69c5be6e35c0",
+      "name": "Insert Founder Assets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1880,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('Build Run Summary').first().json.tasks.map(t => ({ json: t }));"
+      },
+      "id": "7092458a-96f3-5ccc-980f-9127c84797af",
+      "name": "Explode Founder Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify(items.map(t => ({ ...t.json, created_by_agent: $('Validate Agent').first().json.id }))) }}"
+      },
+      "id": "88e8060f-df5a-52cb-93a9-afcb7f6789f0",
+      "name": "Insert Founder Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
+      },
+      "id": "2b64a2cc-5db6-5820-93f1-07d10d918578",
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
+      },
+      "id": "c86b0692-0621-5de7-8bdf-5437adf6b713",
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f585ea1-7d52-5dc0-ab69-b4fbe783fbb9",
+              "name": "result",
+              "value": "11 - Founder Content Agent run complete",
+              "type": "string"
+            },
+            {
+              "id": "cb29460d-9161-5c06-b353-cf7183a6f359",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Build Run Summary').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "6dc38008-9c51-5ec2-b33c-061447403182",
+              "name": "agent_run_id",
+              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "29ff1b8d-3a0c-5814-83eb-5a725535bc27",
+      "name": "Return Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3880,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 9:00 AM MT": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Commits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Commits": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Published",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Published": {
+      "main": [
+        [
+          {
+            "node": "Compile Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compile Evidence": {
+      "main": [
+        [
+          {
+            "node": "Has Evidence?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Evidence?": {
+      "main": [
+        [
+          {
+            "node": "Explode Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Evidence": {
+      "main": [
+        [
+          {
+            "node": "Founder Ideation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Founder Ideation": {
+      "main": [
+        [
+          {
+            "node": "Parse Founder Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Founder Posts": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Get Open Founder Tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Founder Tasks": {
+      "main": [
+        [
+          {
+            "node": "Insert Founder Assets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Explode Founder Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Founder Tasks": {
+      "main": [
+        [
+          {
+            "node": "Insert Founder Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Denver"
+  },
+  "active": false,
+  "versionId": "4d3a83d6-af47-515a-a963-dfe12b2ed224",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
