@@ -1,24 +1,48 @@
 # n8n Workflow Registry
 
-Create these workflows in n8n:
+All 16 registered agents have workflows in `n8n/` (import into the `MOPSHY GROWTHOS` n8n Cloud project). Schedules run in `America/Denver` and are staggered so crawl and OpenAI usage never collide.
 
-00 - GrowthOS Orchestrator
-01 - SEO Intelligence
-02 - Search Opportunity
-03 - Content Research
-04 - Content Production
-05 - Internal Linking
-06 - Technical SEO
-07 - Citation Engine
-08 - Backlink Intelligence
-09 - Founder Content
-10 - Social Distribution
-11 - CRO Intelligence
-12 - Competitor Intelligence
-13 - Reputation Intelligence
-14 - Lead Intent
-15 - Growth Director
-99 - Error Handler
+| File | Workflow | Agent (slug) | Autonomy | Schedule |
+|------|----------|--------------|----------|----------|
+| `00-growthos-orchestrator.json` | GrowthOS Orchestrator | — | — | every 15 min |
+| `01-seo-intelligence.json` | SEO Intelligence v3 | `seo-intelligence` | green | daily 5:30 AM |
+| `02-content-opportunity-agent.json` | Autonomous Content Opportunity Agent | `search-opportunity` | green | daily 6:30 AM |
+| `03-content-writer-qa-agent.json` | Autonomous Content Writer + QA | `content-production` | yellow | daily 7:15 AM |
+| `04-content-github-publisher.json` | Guarded GitHub Blog Publisher | `content-production` | yellow | daily 8:00 AM |
+| `05-content-performance-agent.json` | Content Performance Agent | `content-performance` | green | daily 8:30 AM |
+| `06-content-research.json` | Content Research Agent | `content-research` | green | daily 7:00 AM |
+| `07-internal-linking.json` | Internal Linking Agent | `internal-linking` | yellow | daily 5:45 AM |
+| `08-technical-seo.json` | Technical SEO Agent | `technical-seo` | yellow | daily 6:15 AM |
+| `09-citation-engine.json` | Citation Engine Agent | `citation-engine` | yellow | daily 6:45 AM |
+| `10-backlink-intelligence.json` | Backlink Intelligence Agent | `backlink-intelligence` | green | weekly Sun 7:30 AM |
+| `11-founder-content.json` | Founder Content Agent | `founder-content` | yellow | daily 9:00 AM |
+| `12-social-distribution.json` | Social Distribution Agent | `social-distribution` | yellow | daily 9:30 AM |
+| `13-cro-intelligence.json` | CRO Intelligence Agent | `cro-intelligence` | yellow | daily 10:00 AM |
+| `14-competitor-intelligence.json` | Competitor Intelligence Agent | `competitor-intelligence` | green | daily 4:30 PM |
+| `15-reputation-intelligence.json` | Reputation Intelligence Agent | `reputation-intelligence` | green | hourly |
+| `16-lead-intent.json` | Lead Intent Agent | `lead-intent` | green | hourly at :15 |
+| `17-growth-director.json` | Growth Director Agent | `growth-director` | green | daily 7:30 AM |
+| `99-error-handler.json` | GrowthOS Error Handler | — | — | on error |
+
+## What each agent does
+
+- **01 SEO Intelligence** — GSC (queries/pages/query+page, current + previous 28d), optional GA4, sitemap crawl. Deterministic scoring → `keywords`/`pages` upserts + daily SEO task list (CTR opportunities, striking distance, declining pages, emerging queries, cannibalization, zero-visibility pages).
+- **02 Content Opportunity** — OpenAI web-search trend scouting and scoring into `content_opportunities`, deduped against existing topics/keywords.
+- **03 Content Writer + QA** — drafts from the best `publish` candidate, independent fact check + QA, evidence-gated (`content_drafts`).
+- **04 GitHub Publisher** — publishes one isolated `*.article.json` file on a review PR in `mopshyai/mopshy-ai-growth-engine`; auto-merge disabled.
+- **05 Content Performance** — reconciles publishing PRs (merged → `published`), captures 7/14/30-day GSC + GA4 + AI-referral snapshots per article.
+- **06 Content Research** — builds evidence-backed research packets for `research` candidates; approves (→ writer queue) or downgrades to `backlog`.
+- **07 Internal Linking** — crawls sitemap sample (25 pages/run, rotating), builds the internal link graph, flags orphans, weakly linked and unreachable pages.
+- **08 Technical SEO** — audits a rotating 20-page sample: status codes, noindex, title/meta lengths, canonical, h1; writes `pages` status.
+- **09 Citation Engine** — tracks 13 seeded citation directories, opens pending citations, creates approval tasks for submissions (never auto-submits).
+- **10 Backlink Intelligence** — weekly web-search hunt for unlinked mentions and resource/directory/guest-post pages into `backlink_opportunities`; outreach stays external.
+- **11 Founder Content** — turns real evidence (website repo commits + published articles from the last 7 days) into 3 founder-post drafts in `content_assets`; approval-gated.
+- **12 Social Distribution** — adapts recently published articles into LinkedIn/X/newsletter drafts; approval-gated, deduped per article.
+- **13 CRO Intelligence** — GA4 landing-page and device analysis; proposes conversion experiments into `experiments` + approval tasks.
+- **14 Competitor Intelligence** — scans the competitor watchlist (seeded in `20260912_agent_fleet.sql`) for 14-day changes; logs `competitor_events`.
+- **15 Reputation Intelligence** — hourly web search for mentions/reviews of Mopshy into `mentions`; P1 tasks for negative or response-required mentions.
+- **16 Lead Intent** — scores recent HubSpot contacts (stage + recency model) into `leads.intent_score`; P1 tasks for hot (>=70) leads. Skips gracefully without `HUBSPOT_PRIVATE_APP_TOKEN`.
+- **17 Growth Director** — aggregates open tasks, 24h run health, and stale agents into `daily_briefs` and sends the daily brief to Telegram.
 
 ## Contract for every agent workflow
 Input:
@@ -34,4 +58,18 @@ Output:
 - metrics[]
 - errors[]
 
-No agent workflow should write to external systems without checking autonomy/approval state.
+No agent workflow should write to external systems without checking autonomy/approval state. Yellow agents never execute consequential writes — they create approval-gated tasks (`requires_approval: true`).
+
+## Conventions
+
+- **Supabase access:** every workflow calls the REST API with `$env.SUPABASE_URL` +
+  `$env.SUPABASE_SERVICE_ROLE_KEY` (apikey + Authorization headers). No hardcoded project URLs, no per-workflow Supabase credentials.
+- **Run lifecycle:** every agent looks up its `agents` row by slug, creates an
+  `agent_runs` row, completes it with an output summary, and updates
+  `agents.last_run_at`. Every recommendation becomes a `tasks` record, deduped against open tasks of the same type.
+- **OpenAI:** `gpt-5.6-sol` via the Mopshy OpenAI credential (02, 03, 06, 10, 11, 12, 14, 15).
+- **Google OAuth2** (`webmasters.readonly`, `analytics.readonly`): 01, 05, 13; GSC sitemap fetches in 07/08 need no credential.
+- **GitHub** (`mopshyai/mopshy-ai-growth-engine`, Contents + PR read/write): 04, 05, 11.
+- **Telegram:** 17 (daily brief), 99 (failure alerts). `TELEGRAM_CHAT_ID` env var.
+- **Optional integrations:** GA4 skips gracefully without `GA4_PROPERTY_ID` (01, 05, 13); HubSpot skips gracefully without `HUBSPOT_PRIVATE_APP_TOKEN` (16).
+- **Cost note:** 15 (reputation) runs hourly with one web-search call per run; lower the cron if usage matters.
