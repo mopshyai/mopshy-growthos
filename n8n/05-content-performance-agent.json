@@ -178,7 +178,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $json.pr_number ? ('https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/pulls/' + $json.pr_number) : 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + ' }}",
+        "url": "={{ $json.pr_number ? ('https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/pulls/' + $json.pr_number) : 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
@@ -1090,6 +1090,49 @@
         -1720,
         160
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "05-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "05-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
+      ]
     }
   ],
   "connections": {
@@ -1119,7 +1162,7 @@
       "main": [
         [
           {
-            "node": "Get Performance Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -1164,6 +1207,11 @@
         [
           {
             "node": "Split PR Numbers",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Open Stuck Tasks",
             "type": "main",
             "index": 0
           }
@@ -1516,6 +1564,24 @@
         [
           {
             "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Performance Agent",
             "type": "main",
             "index": 0
           }

@@ -42,7 +42,7 @@ Every agent workflow also carries an `Execute Workflow Trigger` so the orchestra
 - **06 Content Research** — builds evidence-backed research packets for `research` candidates; approves (→ writer queue) or downgrades to `backlog`.
 - **07 Internal Linking** — crawls sitemap sample (25 pages/run, rotating), builds the internal link graph, flags orphans, weakly linked and unreachable pages.
 - **08 Technical SEO** — audits a rotating 20-page sample: status codes, noindex, title/meta lengths, canonical, h1; writes `pages` status.
-- **09 Citation Engine** — tracks 13 seeded citation directories, opens pending citations, creates approval tasks for submissions (never auto-submits).
+- **09 Citation Engine** — tracks 13 seeded citation directories in `growth_citations` (NOT the Studio-owned `citations` table), opens pending citations, creates approval tasks for submissions (never auto-submits). Insert is an `on_conflict` upsert (retry-safe).
 - **10 Backlink Intelligence** — weekly web-search hunt for unlinked mentions and resource/directory/guest-post pages into `backlink_opportunities`; outreach stays external.
 - **11 Founder Content** — turns real evidence (website repo commits + published articles from the last 7 days) into 3 founder-post drafts in `content_assets`; approval-gated.
 - **12 Social Distribution** — adapts recently published articles into LinkedIn/X/newsletter drafts; approval-gated, deduped per article.

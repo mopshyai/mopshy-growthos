@@ -175,7 +175,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/citations?select=id,directory_id,status,last_checked_at' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/growth_citations?select=id,directory_id,status,last_checked_at' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -242,7 +242,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/citations?on_conflict=directory_id' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/growth_citations?on_conflict=directory_id' }}",
         "method": "POST",
         "sendHeaders": true,
         "headerParameters": {
@@ -454,6 +454,49 @@
         -1720,
         160
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "09-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "09-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
+      ]
     }
   ],
   "connections": {
@@ -483,7 +526,7 @@
       "main": [
         [
           {
-            "node": "Get Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -626,6 +669,24 @@
         [
           {
             "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }

@@ -14,7 +14,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const e = $json;\nconst execution = e.execution || {};\nconst workflow = e.workflow || {};\nreturn [{ json: {\n  workflow_name: workflow.name || 'unknown-workflow',\n  workflow_id: workflow.id || null,\n  execution_id: execution.id || null,\n  execution_url: execution.url || null,\n  error_message: (execution.error && execution.error.message) || e.message || 'Unknown n8n workflow error',\n  error_stack: (execution.error && execution.error.stack) || e.stack || null,\n  occurred_at: new Date().toISOString()\n} }];"
+        "jsCode": "const e = $json;\nconst execution = e.execution || {};\nconst workflow = e.workflow || {};\nconst triggerError = e.trigger && e.trigger.error ? e.trigger.error : (execution.error || null);\nreturn [{ json: {\n  workflow_name: workflow.name || 'unknown-workflow',\n  workflow_id: workflow.id || null,\n  execution_id: execution.id || null,\n  execution_url: execution.url || null,\n  error_message: (triggerError && triggerError.message) || e.message || 'Unknown n8n workflow error',\n  error_stack: (triggerError && triggerError.stack) || e.stack || null,\n  occurred_at: new Date().toISOString()\n} }];"
       },
       "id": "99-normalize-error",
       "name": "Normalize Error",
@@ -27,22 +27,10 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?n8n_workflow_name=eq.' + encodeURIComponent('\"' + $('Normalize Error').first().json.workflow_name + '\"') + '&select=id,slug,name&limit=1' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            }
-          ]
-        }
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/workflow_runtime_map?workflow_name=eq.' + encodeURIComponent('\"' + $('Normalize Error').first().json.workflow_name + '\"') + '&select=workflow_id,workflow_name,agent_slug&limit=1' }}",
+        "sendHeaders": false
       },
-      "id": "99-resolve-agent",
+      "id": "99-resolve-map",
       "name": "Resolve Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -55,39 +43,7 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.id }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "99-agent-resolved?",
-      "name": "Agent Resolved?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        -840,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?agent_id=eq.' + $('Resolve Agent').first().json.id + '&status=eq.running&order=started_at.desc&limit=1&select=id,agent_id,started_at' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?agent_id=eq.' + $('Get Agent By Slug').first().json.id + '&status=eq.running&order=started_at.desc&limit=1&select=id,agent_id,started_at' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -115,7 +71,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Conservative matching: only the NEWEST running run for the resolved agent,\n// and only within a 6h recency boundary. Anything else is logged without\n// mutating an unrelated run.\nconst RECENCY_MS = 6 * 3600 * 1000;\nconst err = $('Normalize Error').first().json;\nlet agent = null; try { agent = $('Resolve Agent').first().json; } catch (e) {}\nconst hasAgent = Boolean(agent && agent.id);\nlet run = null; try { run = $('Find Running Run').first().json; } catch (e) {}\nlet matched = null;\nif (hasAgent && run && run.id && run.started_at) {\n  const age = Date.now() - new Date(run.started_at).getTime();\n  if (age >= 0 && age <= RECENCY_MS) matched = { id: run.id, started_at: run.started_at };\n}\nreturn [{ json: {\n  err,\n  agent: hasAgent ? { id: agent.id, slug: agent.slug, name: agent.name } : null,\n  matched_run: matched,\n  resolution: matched ? 'run_marked_failed' : (hasAgent ? 'no_trustworthy_running_run' : 'unmapped_workflow')\n} }];"
+        "jsCode": "// Conservative matching: only the NEWEST running run for the resolved agent,\n// and only within a 6-hour recency boundary. Anything else is logged without\n// mutating an unrelated run.\nconst RECENCY_MS = 6 * 3600 * 1000;\nconst err = $('Normalize Error').first().json;\nlet mapRow = null; try { mapRow = $('Resolve Agent').first().json; } catch (e) {}\nlet agent = null; try { agent = $('Get Agent By Slug').first().json; } catch (e) {}\nlet run = null; try { run = $('Find Running Run').first().json; } catch (e) {}\nconst hasAgent = Boolean(agent && agent.id);\nlet matched = null;\nif (hasAgent && run && run.id && run.started_at) {\n  const age = Date.now() - new Date(run.started_at).getTime();\n  if (age >= 0 && age <= RECENCY_MS) matched = { id: run.id, started_at: run.started_at };\n}\nconst resolution = matched ? 'run_marked_failed'\n  : hasAgent ? 'no_trustworthy_running_run'\n  : (mapRow && mapRow.workflow_name && !mapRow.agent_slug) ? 'infrastructure_workflow'\n  : 'unmapped_workflow';\nreturn [{ json: {\n  err,\n  workflow_name: mapRow && mapRow.workflow_name ? mapRow.workflow_name : err.workflow_name,\n  agent: hasAgent ? { id: agent.id, slug: agent.slug, name: agent.name } : null,\n  matched_run: matched,\n  resolution\n} }];"
       },
       "id": "99-build-resolution",
       "name": "Build Resolution",
@@ -186,7 +142,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "JSON.stringify({ status: 'failed', completed_at: $now.toISO(), error: $('Build Resolution').first().json.err.error_message.slice(0, 500) })"
+        "body": "={{ JSON.stringify({ status: 'failed', completed_at: $now.toISO(), error: $('Build Resolution').first().json.err.error_message.slice(0, 500) }) }}"
       },
       "id": "99-mark-run-failed",
       "name": "Mark Run Failed",
@@ -201,7 +157,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Build Resolution').first().json.agent.id + '&select=error_count' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Get Agent By Slug').first().json.id + '&select=error_count' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -229,7 +185,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Build Resolution').first().json.agent.id }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Get Agent By Slug').first().json.id }}",
         "method": "PATCH",
         "sendHeaders": true,
         "headerParameters": {
@@ -270,7 +226,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = $('Build Resolution').first().json;\nreturn [{ json: {\n  event_type: 'agent_run_failed',\n  severity: 'critical',\n  source: r.agent ? r.agent.slug : 'unmapped',\n  payload: {\n    workflow_name: r.err.workflow_name,\n    workflow_id: r.err.workflow_id,\n    execution_id: r.err.execution_id,\n    execution_url: r.err.execution_url,\n    error_message: r.err.error_message,\n    error_stack: r.err.error_stack,\n    occurred_at: r.err.occurred_at,\n    resolution: r.resolution,\n    matched_agent: r.agent ? r.agent.slug : null,\n    matched_run_id: r.matched_run ? r.matched_run.id : null\n  }\n} }];"
+        "jsCode": "const r = $('Build Resolution').first().json;\nreturn [{ json: {\n  event_type: 'agent_run_failed',\n  severity: 'critical',\n  source: r.agent ? r.agent.slug : (r.resolution === 'infrastructure_workflow' ? 'infrastructure' : 'unmapped'),\n  payload: {\n    workflow_name: r.err.workflow_name,\n    workflow_id: r.err.workflow_id,\n    execution_id: r.err.execution_id,\n    execution_url: r.err.execution_url,\n    error_message: r.err.error_message,\n    error_stack: r.err.error_stack,\n    occurred_at: r.err.occurred_at,\n    resolution: r.resolution,\n    matched_agent: r.agent ? r.agent.slug : null,\n    matched_run_id: r.matched_run ? r.matched_run.id : null\n  }\n} }];"
       },
       "id": "99-compose-event",
       "name": "Compose Event",
@@ -329,7 +285,7 @@
             {
               "id": "tg-99",
               "name": "telegram_message",
-              "value": "={{ '🚨 GrowthOS agent failure\\nAgent: ' + ($('Build Resolution').first().json.agent ? $('Build Resolution').first().json.agent.slug : 'unmapped: ' + $('Build Resolution').first().json.err.workflow_name) + '\\nAction: ' + $('Build Resolution').first().json.resolution + '\\nError: ' + $('Build Resolution').first().json.err.error_message.slice(0, 300) + '\\nExecution: ' + ($('Build Resolution').first().json.err.execution_url || 'n/a') }}",
+              "value": "={{ '🚨 GrowthOS agent failure\\nAgent: ' + ($('Build Resolution').first().json.agent ? ($('Build Resolution').first().json.agent && $('Build Resolution').first().json.agent.slug) || $('Build Resolution').first().json.workflow_name : 'unmapped: ' + $('Build Resolution').first().json.err.workflow_name) + '\\nAction: ' + $('Build Resolution').first().json.resolution + '\\nError: ' + $('Build Resolution').first().json.err.error_message.slice(0, 300) + '\\nExecution: ' + ($('Build Resolution').first().json.err.execution_url || 'n/a') }}",
               "type": "string"
             }
           ]
@@ -361,6 +317,99 @@
       ],
       "webhookId": "growthos-99-alert",
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.agent_slug }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "99-map-has-agent-slug?",
+      "name": "Map Has Agent Slug?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.' + $('Resolve Agent').first().json.agent_slug + '&select=id,slug,name&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "99-get-agent-by-slug",
+      "name": "Get Agent By Slug",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -480,
+        -120
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "99-has-agent-row?",
+      "name": "Has Agent Row?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -120
+      ]
     }
   ],
   "connections": {
@@ -390,25 +439,7 @@
       "main": [
         [
           {
-            "node": "Agent Resolved?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Agent Resolved?": {
-      "main": [
-        [
-          {
-            "node": "Find Running Run",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Build Resolution",
+            "node": "Map Has Agent Slug?",
             "type": "main",
             "index": 0
           }
@@ -515,6 +546,53 @@
         [
           {
             "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Has Agent Slug?": {
+      "main": [
+        [
+          {
+            "node": "Get Agent By Slug",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent By Slug": {
+      "main": [
+        [
+          {
+            "node": "Has Agent Row?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Agent Row?": {
+      "main": [
+        [
+          {
+            "node": "Find Running Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Resolution",
             "type": "main",
             "index": 0
           }

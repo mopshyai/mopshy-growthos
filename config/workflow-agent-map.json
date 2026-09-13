@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Machine-readable mapping from n8n workflow names (as imported) to GrowthOS agent slugs. The error handler (99) resolves the failing workflow through the agents.n8n_workflow_name column in Supabase, which is populated from this map after n8n import. Infrastructure workflows have no agent slug.",
+  "notes": "Seed source for the Supabase workflow_runtime_map table (many workflows -> one agent). After n8n import, insert one row per workflow with its n8n workflow name/id and agent slug; dispatch_enabled stays false — native n8n schedules are the execution source of truth. The 99 error handler resolves failing workflows through this mapping (exact name match, no free text). Infrastructure workflows have agent_slug null.",
   "workflows": {
     "00 - GrowthOS Orchestrator": null,
     "01 - SEO Intelligence v3": "seo-intelligence",

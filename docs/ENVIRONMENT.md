@@ -24,8 +24,10 @@ Never commit live secrets.
 
 ## Runtime controls
 
-- `GROWTHOS_PAUSED` — fail-closed orchestrator gate. `true` or missing blocks
-  all dispatch. Only set `false` after the activation runbook's canary tests pass.
+- `GROWTHOS_PAUSED` — fail-closed at two layers: the orchestrator dispatch gate,
+  and a per-workflow `GrowthOS Paused?` gate in every agent that skips
+  production trigger executions when `true` or missing. Manual test executions
+  bypass the per-workflow gate intentionally (documented in the runbook).
 - `GROWTHOS_RUN_TIMEOUT_MINUTES` — the 98 stale-run watchdog marks agent runs
   stuck in `running` longer than this as failed (default 45).
 - `GROWTHOS_DRY_RUN` — when `true`, consequential writers skip external

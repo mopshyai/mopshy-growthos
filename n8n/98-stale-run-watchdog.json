@@ -198,7 +198,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $json.agent_id + '&select=error_count' }}",
+        "url": "={{ $('Explode Agent Totals').item.json.agent_id ? ($env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Explode Agent Totals').item.json.agent_id + '&select=id,error_count') : ($env.SUPABASE_URL + '/rest/v1/agents?id=eq.00000000-0000-0000-0000-000000000000&select=id,error_count') }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -226,7 +226,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Explode Agent Totals').item.json.agent_id }}",
+        "url": "={{ $('Explode Agent Totals').item.json.agent_id ? ($env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Explode Agent Totals').item.json.agent_id) : ($env.SUPABASE_URL + '/rest/v1/agents?id=eq.00000000-0000-0000-0000-000000000000') }}",
         "method": "PATCH",
         "sendHeaders": true,
         "headerParameters": {
@@ -252,7 +252,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ error_count: (($('Get Agent Row').first().json && $('Get Agent Row').first().json.error_count) || 0) + $('Explode Agent Totals').item.json.count }) }}"
+        "body": "={{ JSON.stringify({ error_count: (($('Get Agent Row').item.json && $('Get Agent Row').item.json.error_count) || 0) + $('Explode Agent Totals').item.json.count }) }}"
       },
       "id": "98-bump-agent-error-count",
       "name": "Bump Agent Error Count",
@@ -267,7 +267,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const r = $('Normalize Stale Runs').first().json;\nreturn [{ json: {\n  event_type: 'stale_run_timeout',\n  severity: 'P1',\n  source: '98-stale-run-watchdog',\n  payload: {\n    stale_count: r.stale_count,\n    timeout_minutes: r.timeout_minutes,\n    agents: r.by_agent,\n    detected_at: new Date().toISOString()\n  }\n} }];"
+        "jsCode": "const r = $('Normalize Stale Runs').first().json;\nreturn [{ json: {\n  event_type: 'stale_run_timeout',\n  severity: 'P1',\n  source: '98-stale-run-watchdog',\n  payload: {\n    stale_count: r.stale_count,\n    timeout_minutes: r.timeout_minutes,\n    agents: r.by_agent.map(a => ({ agent_id: a.agent_id, stale_runs: a.count, oldest_started_at: a.oldest_started_at })),\n    detected_at: new Date().toISOString()\n  }\n} }];"
       },
       "id": "98-compose-watchdog-event",
       "name": "Compose Watchdog Event",
@@ -326,7 +326,7 @@
             {
               "id": "tg-98",
               "name": "telegram_message",
-              "value": "={{ '⏰ GrowthOS watchdog: ' + $('Normalize Stale Runs').first().json.stale_count + ' stale run(s) exceeded ' + $('Normalize Stale Runs').first().json.timeout_minutes + ' min and were marked failed. Agents: ' + $('Normalize Stale Runs').first().json.by_agent.map(a => a.agent_id.slice(0, 8) + ' x' + a.count).join(', ') }}",
+              "value": "={{ '⏰ GrowthOS watchdog: ' + $('Normalize Stale Runs').first().json.stale_count + ' stale run(s) exceeded ' + $('Normalize Stale Runs').first().json.timeout_minutes + ' min and were marked failed. Agents: ' + $('Normalize Stale Runs').first().json.by_agent.map(a => (a.agent_id ? a.agent_id.slice(0, 8) : 'orphan') + ' x' + a.count).join(', ') }}",
               "type": "string"
             }
           ]
@@ -358,6 +358,17 @@
       ],
       "webhookId": "growthos-98-alert",
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "98-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        40
+      ]
     }
   ],
   "connections": {
@@ -497,6 +508,17 @@
         [
           {
             "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
             "type": "main",
             "index": 0
           }

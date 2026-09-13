@@ -16,7 +16,10 @@
       "name": "Every 15 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-760, 0]
+      "position": [
+        -760,
+        0
+      ]
     },
     {
       "parameters": {
@@ -42,7 +45,10 @@
       "name": "Create Run Context",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-540, 0]
+      "position": [
+        -540,
+        0
+      ]
     },
     {
       "parameters": {
@@ -70,11 +76,14 @@
       "name": "GrowthOS Enabled?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-320, 0]
+      "position": [
+        -320,
+        0
+      ]
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at,n8n_workflow_id,n8n_workflow_name' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -94,27 +103,36 @@
       "name": "Get Active Agents",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-80, 0]
+      "position": [
+        -80,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst rows = items.flatMap(item => Array.isArray(item.json) ? item.json : [item.json]);\n\nfunction due(agent) {\n  if (agent.next_run_at) return new Date(agent.next_run_at) <= now;\n  if (!agent.last_run_at) return true;\n  const last = new Date(agent.last_run_at);\n  const ageMinutes = (now - last) / 60000;\n  switch (agent.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\n\nreturn rows.filter(due).map(agent => ({ json: { ...agent, dispatch_requested_at: now.toISOString() } }));"
+        "jsCode": "const now = new Date();\nconst due = items.flatMap(i => Array.isArray(i.json) ? i.json : [i.json]).filter(a => a && a.slug);\nconst mapRows = $('Get Dispatch Map').all().map(i => i.json).filter(m => m && m.workflow_id && m.agent_slug);\n\nfunction isDue(a) {\n  if (a.next_run_at) return new Date(a.next_run_at) <= now;\n  if (!a.last_run_at) return true;\n  const ageMinutes = (now - new Date(a.last_run_at)) / 60000;\n  switch (a.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\nconst dueAgents = due.filter(isDue);\nconst wired = [];\nfor (const a of dueAgents) {\n  for (const m of mapRows.filter(m => m.agent_slug === a.slug)) {\n    wired.push({ agent_slug: a.slug, agent_id: a.id, n8n_workflow_id: m.workflow_id, workflow_name: m.workflow_name,\n      orchestrator_run_id: $('Create Run Context').first().json.orchestrator_run_id, dispatch_requested_at: now.toISOString() });\n  }\n}\nconst wiredSlugs = new Set(wired.map(w => w.agent_slug));\nconst unwired = [...new Set(dueAgents.filter(a => !wiredSlugs.has(a.slug)).map(a => a.slug))];\nreturn [{ json: { wired, unwired, dispatch_count: wired.length, any: wired.length + unwired.length } }];"
       },
       "id": "filter-due-agents",
       "name": "Filter Due Agents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [160, 0]
+      "position": [
+        160,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Dispatch preparation. Only agents whose n8n_workflow_id has been wired\n// (post-import step in docs/PRODUCTION_ACTIVATION.md) are dispatched; due\n// agents without a wired ID are reported in the orchestrator event instead of\n// silently disappearing. Unknown slugs fail via the Execute Workflow node's\n// own error path, which routes to the 99 error handler.\nconst due = items.flatMap(i => Array.isArray(i.json) ? i.json : [i.json]).filter(a => a && a.slug);\nconst ctx = $('Create Run Context').first().json;\nconst wired = due.filter(a => a.n8n_workflow_id).map(a => ({\n  agent_slug: a.slug,\n  agent_id: a.id,\n  n8n_workflow_id: a.n8n_workflow_id,\n  orchestrator_run_id: ctx.orchestrator_run_id,\n  dispatch_requested_at: new Date().toISOString()\n}));\nconst unwired = due.filter(a => !a.n8n_workflow_id).map(a => a.slug);\nreturn [{ json: { wired, unwired, dispatch_count: wired.length, any: wired.length + unwired.length } }];"
+        "jsCode": "// Joins due agents with dispatch-enabled rows from workflow_runtime_map.\n// Falls back to the precomputed summary when wired directly.\nreturn [{ json: $json.wired !== undefined ? $json : { wired: [], unwired: [], dispatch_count: 0, any: 0 } }];"
       },
       "id": "00-summarize",
       "name": "Summarize Dispatch",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 0]
+      "position": [
+        420,
+        0
+      ]
     },
     {
       "parameters": {
@@ -142,7 +160,10 @@
       "name": "Has Dispatch Work?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [660, 0]
+      "position": [
+        660,
+        0
+      ]
     },
     {
       "parameters": {
@@ -152,7 +173,10 @@
       "name": "Explode Wired Agents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, -120]
+      "position": [
+        900,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -168,7 +192,10 @@
       "name": "Dispatch To Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [1140, -120],
+      "position": [
+        1140,
+        -120
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -205,19 +232,164 @@
       "name": "Log Orchestrator Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [900, 120],
+      "position": [
+        900,
+        120
+      ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/workflow_runtime_map?dispatch_enabled=eq.true&workflow_id=not.is.null&select=workflow_id,workflow_name,agent_slug' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00-get-map",
+      "name": "Get Dispatch Map",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -540,
+        200
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "id": "00-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        40
+      ]
     }
   ],
   "connections": {
-    "Every 15 Minutes": {"main":[[{"node":"Create Run Context","type":"main","index":0}]]},
-    "Create Run Context": {"main":[[{"node":"GrowthOS Enabled?","type":"main","index":0}]]},
-    "GrowthOS Enabled?": {"main":[[{"node":"Get Active Agents","type":"main","index":0}],[]]},
-    "Get Active Agents": {"main":[[{"node":"Filter Due Agents","type":"main","index":0}]]},
-    "Filter Due Agents": {"main":[[{"node":"Summarize Dispatch","type":"main","index":0}]]},
-    "Summarize Dispatch": {"main":[[{"node":"Has Dispatch Work?","type":"main","index":0}]]},
-    "Has Dispatch Work?": {"main":[[{"node":"Explode Wired Agents","type":"main","index":0},{"node":"Log Orchestrator Event","type":"main","index":0}],[]]},
-    "Explode Wired Agents": {"main":[[{"node":"Dispatch To Agent","type":"main","index":0}]]}
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Create Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Run Context": {
+      "main": [
+        [
+          {
+            "node": "GrowthOS Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Get Active Agents",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Dispatch Map",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get Active Agents": {
+      "main": [
+        [
+          {
+            "node": "Filter Due Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Due Agents": {
+      "main": [
+        [
+          {
+            "node": "Summarize Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Has Dispatch Work?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Dispatch Work?": {
+      "main": [
+        [
+          {
+            "node": "Explode Wired Agents",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Orchestrator Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Explode Wired Agents": {
+      "main": [
+        [
+          {
+            "node": "Dispatch To Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
   "settings": {
@@ -226,6 +398,8 @@
   },
   "active": false,
   "versionId": "00000000-0000-4000-8000-000000000000",
-  "meta": {"templateCredsSetupCompleted": false},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
   "tags": []
 }

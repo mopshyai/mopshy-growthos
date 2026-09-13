@@ -164,30 +164,57 @@ Do not call GrowthOS production-ready until:
 
 GitHub issue #5 tracks this activation milestone.
 
-## Phase 2a - Wire the runtime map (post-import)
+## Phase 2a - Seed the runtime map (post-import)
 
-The orchestrator dispatches by workflow ID and the error handler resolves
-failures by workflow name; both come from the `agents` table. After importing
-the workflows into n8n Cloud, run this once in the Supabase SQL Editor using
-the IDs/names shown in the n8n workflow list (they must match
-`config/workflow-agent-map.json` exactly).
-
-n8n workflow IDs are opaque strings. Newer n8n installs commonly use
-alphanumeric NanoID-style IDs while older installs may use numeric IDs, so
-`agents.n8n_workflow_id` is intentionally stored as `text`.
+Dispatch and error resolution both read the `workflow_runtime_map` table
+(many workflows -> one agent; infrastructure rows have `agent_slug = null`).
+After importing the workflows, insert one row per workflow — names must match
+`config/workflow-runtime-map` seed in `config/workflow-agent-map.json` exactly:
 
 ```sql
-update agents
-set n8n_workflow_id = '<exact-n8n-workflow-id>',
-    n8n_workflow_name = '<exact n8n workflow name>'
-where slug = '<agent-slug>';
+insert into workflow_runtime_map (workflow_name, workflow_id, agent_slug, workflow_role, dispatch_enabled)
+values ('01 - SEO Intelligence v3', '<n8n-workflow-id>', 'seo-intelligence', 'agent', false);
 ```
 
-Repeat for all 16 agent rows (workflows 00/98/99 are infrastructure and stay
-unmapped). Rows without a wired ID are never dispatched; the orchestrator
-reports them in `system_events` (`orchestrator_dispatch`, `unwired_due_agents`).
+Workflow IDs are opaque n8n strings (text). Repeat for all 19 workflows; the
+99 error handler resolves any failure through this table by exact workflow
+name — never free-text matching.
 
-A convenience mapping lives in `config/workflow-agent-map.json`.
+**Attach the error workflow**: importing 99 does not automatically link it.
+For EVERY workflow that runs on a trigger, either set Settings -> Error
+workflow -> `99 - GrowthOS Error Handler` in the n8n UI, or do it once via the
+n8n API:
+
+```bash
+curl -X PUT "$N8N_BASE_URL/api/v1/workflows/$WORKFLOW_ID" \
+  -H "X-N8N-API-KEY: $N8N_API_KEY" -H "Content-Type: application/json" \
+  -d '{"settings": {"errorWorkflow": "<99-workflow-id>"}}'
+```
+
+Note: n8n's Error Trigger does NOT fire for manual test executions. The
+failure canary must trigger an automatic execution (e.g. activate a
+webhook/schedule workflow that throws) — then 99 marks the matching recent
+`agent_runs` row failed and increments the agent's error count.
+
+## Scheduling topology (single source of truth)
+
+**Native n8n schedules are the execution source of truth.** Every agent
+workflow carries its own staggered Schedule Trigger. Workflow 00 is the
+control/health orchestration layer: it logs dispatch visibility and can
+dispatch via `workflow_runtime_map`, but every mapped row ships with
+`dispatch_enabled = false`.
+
+NEVER enable both systems: an agent that is both schedule-active AND
+dispatch-enabled will execute twice. To migrate an agent to 00-dispatch:
+insert/enable its `workflow_runtime_map` row (`dispatch_enabled = true`) AND
+deactivate the agent's own Schedule Trigger in n8n — one at a time, never both.
+
+The fail-closed pause works per workflow: every agent has a
+`GrowthOS Paused?` gate that skips execution when `GROWTHOS_PAUSED` is `true`
+(or missing) AND the execution is a production trigger run. Manual test
+executions deliberately bypass the pause gate so canaries remain runnable —
+this is documented, intentional, and production-safe because manual runs
+cannot happen unattended.
 
 ## Phase 2b - Runtime safety controls
 
@@ -207,7 +234,7 @@ A convenience mapping lives in `config/workflow-agent-map.json`.
 2. Apply `supabase/migrations/20260913_production_hardening.sql` (adds the
    wiring columns, idempotency unique indexes, and watchdog indexes).
 3. Manual executions in this order (schedules still off):
-   01 -> 08 -> 07 -> 05 -> 09 (dry-run) -> 02 -> 06 -> 03 -> 17 -> 04 (dry-run).
+   01 -> 08 -> 07 -> 05 -> 09 (dry-run; writes to `growth_citations` only) -> 02 -> 06 -> 03 -> 17 -> 04 (dry-run).
 4. Inspect `agent_runs`, `system_events`, and `tasks` after each run.
 5. Wire the runtime map (Phase 2a).
 6. Set `GROWTHOS_DRY_RUN=true`, enable schedules for stage-1 agents

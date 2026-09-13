@@ -180,7 +180,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, tools: [{ type: 'web_search' }], input: `You are Mopshy's backlink intelligence analyst. Search the web for RECENT, REAL unlinked mentions of Mopshy (mopshy.com), an AI automation agency: discussions, articles, listicles, forum threads, social posts that mention Mopshy without linking to it. Only report results you actually found; never fabricate URLs. Return ONLY JSON: {opportunities:[{domain, url, opportunity_type:'unlinked_mention', rationale, relevance_score:0-100, authority_score:0-100}]}` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's backlink intelligence analyst. Search the web for RECENT, REAL unlinked mentions of Mopshy (mopshy.com), an AI automation agency: discussions, articles, listicles, forum threads, social posts that mention Mopshy without linking to it. Only report results you actually found; never fabricate URLs. Return ONLY JSON: {opportunities:[{domain, url, opportunity_type:'unlinked_mention', rationale, relevance_score:0-100, authority_score:0-100}]}` }) }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "options": {
@@ -203,7 +203,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, tools: [{ type: 'web_search' }], input: `You are Mopshy's backlink intelligence analyst. Find REAL resource pages, directories, 'best AI automation agencies' lists, n8n/Make/Zapier partner or agency directories, and guest-post pages where mopshy.com could plausibly earn a legitimate editorial link. No spam, no link farms, no paid-link schemes. Only report results you actually found. Return ONLY JSON: {opportunities:[{domain, url, opportunity_type:'resource_page'|'directory'|'guest_post', rationale, relevance_score:0-100, authority_score:0-100}]}` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's backlink intelligence analyst. Find REAL resource pages, directories, 'best AI automation agencies' lists, n8n/Make/Zapier partner or agency directories, and guest-post pages where mopshy.com could plausibly earn a legitimate editorial link. No spam, no link farms, no paid-link schemes. Only report results you actually found. Return ONLY JSON: {opportunities:[{domain, url, opportunity_type:'resource_page'|'directory'|'guest_post', rationale, relevance_score:0-100, authority_score:0-100}]}` }) }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "options": {
@@ -446,6 +446,49 @@
         -1720,
         160
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "10-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "10-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
+      ]
     }
   ],
   "connections": {
@@ -475,7 +518,7 @@
       "main": [
         [
           {
-            "node": "Get Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -618,6 +661,24 @@
         [
           {
             "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }
