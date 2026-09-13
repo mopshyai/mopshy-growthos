@@ -396,6 +396,17 @@
         3680,
         -80
       ]
+    },
+    {
+      "parameters": {},
+      "id": "02-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
     }
   ],
   "connections": {
@@ -565,6 +576,17 @@
         [
           {
             "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }
