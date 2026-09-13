@@ -52,6 +52,37 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED || 'true').toString().toLowerCase() }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "global-pause-gate",
+      "name": "GrowthOS Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at' }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -73,7 +104,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -300,
+        -80,
         0
       ]
     },
@@ -86,7 +117,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -60,
+        160,
         0
       ]
     },
@@ -115,7 +146,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        180,
+        400,
         0
       ]
     }
@@ -136,11 +167,23 @@
       "main": [
         [
           {
-            "node": "Get Active Agents",
+            "node": "GrowthOS Enabled?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "GrowthOS Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Get Active Agents",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Get Active Agents": {
