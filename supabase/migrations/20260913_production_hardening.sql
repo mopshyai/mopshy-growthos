@@ -3,7 +3,9 @@
 
 -- 1. Runtime wiring for orchestrator dispatch and error-handler resolution.
 --    Populated AFTER workflows are imported into n8n (see docs/PRODUCTION_ACTIVATION.md).
-alter table public.agents add column if not exists n8n_workflow_id uuid;
+--    n8n workflow IDs are opaque identifiers (newer installs commonly use NanoID-style
+--    alphanumeric strings; older installs may have numeric IDs), so store them as text.
+alter table public.agents add column if not exists n8n_workflow_id text;
 alter table public.agents add column if not exists n8n_workflow_name text;
 
 -- 2. Idempotency guarantees for fleet writers. The system is pre-launch, so
