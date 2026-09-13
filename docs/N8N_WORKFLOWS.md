@@ -2,6 +2,13 @@
 
 All 16 registered agents have workflows in `n8n/` (import into the `MOPSHY GROWTHOS` n8n Cloud project). Schedules run in `America/New_York` (Eastern) and are staggered so crawl and OpenAI usage never collide.
 
+Infrastructure workflows:
+- **00 Orchestrator** — fail-closed (`GROWTHOS_PAUSED`); dispatches due agents through an Execute Workflow node whose workflow ID resolves at runtime from `agents.n8n_workflow_id` (wired post-import). Due agents without a wired ID are reported in a `system_events` row instead of silently disappearing.
+- **98 Stale Run Watchdog** — every 15 minutes, marks `agent_runs` stuck in `running` beyond `GROWTHOS_RUN_TIMEOUT_MINUTES` (default 45) as failed with an explicit timeout error, bumps agent error counts, writes a P1 `system_events` row, and sends one concise Telegram summary. Idempotent: a run marked failed leaves the `running` set and can never be reprocessed.
+- **99 Error Handler** — on any workflow failure: normalizes the error, resolves the failing agent via exact `agents.n8n_workflow_name` lookup (never free-text matching), marks only the newest `running` run of that agent failed within a 6-hour recency boundary, bumps `agents.error_count`, writes a structured `system_events` row, and sends one Telegram alert. Unmapped workflows still log and alert without crashing the handler. Every Supabase call in 99 is failure-tolerant.
+
+Every agent workflow also carries an `Execute Workflow Trigger` so the orchestrator can invoke it; manual and schedule triggers are unaffected. Validate the repo anytime with `npm run validate:growthos`.
+
 | File | Workflow | Agent (slug) | Autonomy | Schedule |
 |------|----------|--------------|----------|----------|
 | `00-growthos-orchestrator.json` | GrowthOS Orchestrator | — | — | every 15 min |
@@ -22,6 +29,7 @@ All 16 registered agents have workflows in `n8n/` (import into the `MOPSHY GROWT
 | `15-reputation-intelligence.json` | Reputation Intelligence Agent | `reputation-intelligence` | green | hourly |
 | `16-lead-intent.json` | Lead Intent Agent | `lead-intent` | green | hourly at :15 |
 | `17-growth-director.json` | Growth Director Agent | `growth-director` | green | daily 7:30 AM ET |
+| `98-stale-run-watchdog.json` | Stale Run Watchdog | — | — | every 15 min |
 | `99-error-handler.json` | GrowthOS Error Handler | — | — | on error |
 
 ## What each agent does

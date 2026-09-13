@@ -162,3 +162,58 @@ Do not call GrowthOS production-ready until:
 ## Master tracker
 
 GitHub issue #5 tracks this activation milestone.
+
+## Phase 2a - Wire the runtime map (post-import)
+
+The orchestrator dispatches by workflow ID and the error handler resolves
+failures by workflow name; both come from the `agents` table. After importing
+the workflows into n8n Cloud, run this once in the Supabase SQL Editor using
+the IDs/names shown in the n8n workflow list (they must match
+`config/workflow-agent-map.json` exactly):
+
+```sql
+update agents set n8n_workflow_id = '<n8n-workflow-uuid>', n8n_workflow_name = '<exact n8n workflow name>'
+  where slug = '<agent-slug>';
+```
+
+Repeat for all 16 agent rows (workflows 00/98/99 are infrastructure and stay
+unmapped). Rows without a wired ID are never dispatched; the orchestrator
+reports them in `system_events` (`orchestrator_dispatch`, `unwired_due_agents`).
+
+A convenience mapping lives in `config/workflow-agent-map.json`.
+
+## Phase 2b - Runtime safety controls
+
+- `GROWTHOS_PAUSED=true` (default) keeps the orchestrator fail-closed. Set to
+  `false` only after the canary tests below pass.
+- `GROWTHOS_DRY_RUN=true` runs the whole fleet in canary mode: the publisher
+  reserves a draft, records a `publish_dry_run` system event with the exact
+  branch/file/PR it *would* create, rolls the draft back to `ready`, and opens
+  no PR. The citation engine skips inserts. Read-only agents run normally.
+- `GROWTHOS_RUN_TIMEOUT_MINUTES` (default 45) governs the 98 watchdog, which
+  every 15 minutes marks stuck `agent_runs` failed, bumps agent error counts,
+  raises a P1 event, and sends one Telegram summary.
+
+## Phase 3 - Staged canary activation
+
+1. Import everything inactive; attach credentials and environment.
+2. Apply `supabase/migrations/20260913_production_hardening.sql` (adds the
+   wiring columns, idempotency unique indexes, and watchdog indexes).
+3. Manual executions in this order (schedules still off):
+   01 → 08 → 07 → 05 → 09 (dry-run) → 02 → 06 → 03 → 17 → 04 (dry-run).
+4. Inspect `agent_runs`, `system_events`, and `tasks` after each run.
+5. Wire the runtime map (Phase 2a).
+6. Set `GROWTHOS_DRY_RUN=true`, enable schedules for stage-1 agents
+   (01, 05, 08) and the 98 watchdog; watch one full day.
+7. Set `GROWTHOS_DRY_RUN=false`, enable stage 2 (02, 06, 07), then stage 3
+   (03, 04 — publisher remains PR-gated, auto-merge stays off), then stage 4
+   (13, 16, 17), then stage 5 (09, 10, 11, 12, 14, 15).
+
+## Publishing safety
+
+The publisher is retry-safe by construction: it reserves the draft as
+`publishing` before touching GitHub, then checks for an existing open PR on
+the target branch and reuses it instead of creating a duplicate. If a run dies
+mid-flight, the 05 agent raises a `publishing_stuck` P1 task (no automatic
+state changes). Publishing remains: PR only → human review → human merge.
+Auto-merge is never enabled by GrowthOS.
