@@ -77,7 +77,7 @@ create table if not exists public.growth_citations (
 --    are referenced.
 -- ============================================================================
 create unique index if not exists growth_citations_directory_unique
-  on public.growth_citations (directory_id) where directory_id is not null;
+  on public.growth_citations (directory_id);
 
 create unique index if not exists backlink_opportunities_url_unique
   on public.backlink_opportunities (url);
@@ -89,7 +89,7 @@ create unique index if not exists mentions_url_unique
   on public.mentions (url);
 
 create unique index if not exists leads_hubspot_contact_unique
-  on public.leads (hubspot_contact_id) where hubspot_contact_id is not null;
+  on public.leads (hubspot_contact_id);
 
 -- ============================================================================
 -- 4. Watchdog and publisher lookup paths.

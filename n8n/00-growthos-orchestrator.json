@@ -264,7 +264,8 @@
         -540,
         200
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {},

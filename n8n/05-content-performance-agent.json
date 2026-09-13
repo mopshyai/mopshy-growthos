@@ -499,7 +499,8 @@
       "position": [
         880,
         160
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -943,7 +944,8 @@
         -80,
         -320
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
