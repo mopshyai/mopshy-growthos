@@ -16,10 +16,7 @@
       "name": "Every 15 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [
-        -760,
-        0
-      ]
+      "position": [-760, 0]
     },
     {
       "parameters": {
@@ -45,10 +42,7 @@
       "name": "Create Run Context",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [
-        -540,
-        0
-      ]
+      "position": [-540, 0]
     },
     {
       "parameters": {
@@ -76,14 +70,11 @@
       "name": "GrowthOS Enabled?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        -320,
-        0
-      ]
+      "position": [-320, 0]
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at,n8n_workflow_id,n8n_workflow_name' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -103,10 +94,7 @@
       "name": "Get Active Agents",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        -80,
-        0
-      ]
+      "position": [-80, 0]
     },
     {
       "parameters": {
@@ -116,10 +104,7 @@
       "name": "Filter Due Agents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        160,
-        0
-      ]
+      "position": [160, 0]
     },
     {
       "parameters": {
@@ -129,10 +114,7 @@
       "name": "Summarize Dispatch",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        420,
-        0
-      ]
+      "position": [420, 0]
     },
     {
       "parameters": {
@@ -160,10 +142,7 @@
       "name": "Has Dispatch Work?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [
-        660,
-        0
-      ]
+      "position": [660, 0]
     },
     {
       "parameters": {
@@ -173,10 +152,7 @@
       "name": "Explode Wired Agents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        900,
-        -120
-      ]
+      "position": [900, -120]
     },
     {
       "parameters": {
@@ -192,10 +168,7 @@
       "name": "Dispatch To Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "position": [
-        1140,
-        -120
-      ],
+      "position": [1140, -120],
       "onError": "continueRegularOutput"
     },
     {
@@ -232,109 +205,19 @@
       "name": "Log Orchestrator Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        900,
-        120
-      ],
+      "position": [900, 120],
       "onError": "continueRegularOutput"
     }
   ],
   "connections": {
-    "Every 15 Minutes": {
-      "main": [
-        [
-          {
-            "node": "Create Run Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create Run Context": {
-      "main": [
-        [
-          {
-            "node": "GrowthOS Enabled?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "GrowthOS Enabled?": {
-      "main": [
-        [
-          {
-            "node": "Get Active Agents",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Get Active Agents": {
-      "main": [
-        [
-          {
-            "node": "Filter Due Agents",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter Due Agents": {
-      "main": [
-        [
-          {
-            "node": "Summarize Dispatch",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Summarize Dispatch": {
-      "main": [
-        [
-          {
-            "node": "Has Dispatch Work?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has Dispatch Work?": {
-      "main": [
-        [
-          {
-            "node": "Explode Wired Agents",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Log Orchestrator Event",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Explode Wired Agents": {
-      "main": [
-        [
-          {
-            "node": "Dispatch To Agent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Every 15 Minutes": {"main":[[{"node":"Create Run Context","type":"main","index":0}]]},
+    "Create Run Context": {"main":[[{"node":"GrowthOS Enabled?","type":"main","index":0}]]},
+    "GrowthOS Enabled?": {"main":[[{"node":"Get Active Agents","type":"main","index":0}],[]]},
+    "Get Active Agents": {"main":[[{"node":"Filter Due Agents","type":"main","index":0}]]},
+    "Filter Due Agents": {"main":[[{"node":"Summarize Dispatch","type":"main","index":0}]]},
+    "Summarize Dispatch": {"main":[[{"node":"Has Dispatch Work?","type":"main","index":0}]]},
+    "Has Dispatch Work?": {"main":[[{"node":"Explode Wired Agents","type":"main","index":0},{"node":"Log Orchestrator Event","type":"main","index":0}],[]]},
+    "Explode Wired Agents": {"main":[[{"node":"Dispatch To Agent","type":"main","index":0}]]}
   },
   "pinData": {},
   "settings": {
@@ -343,8 +226,6 @@
   },
   "active": false,
   "versionId": "00000000-0000-4000-8000-000000000000",
-  "meta": {
-    "templateCredsSetupCompleted": false
-  },
+  "meta": {"templateCredsSetupCompleted": false},
   "tags": []
 }
