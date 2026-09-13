@@ -2,12 +2,24 @@
   "name": "02 - Autonomous Content Opportunity Agent",
   "nodes": [
     {
-      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "30 6 * * *"}]}},
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 6 * * *"
+            }
+          ]
+        }
+      },
       "id": "daily-trigger",
-      "name": "Daily 6:30 AM MT",
+      "name": "Daily 6:30 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-980, -100]
+      "position": [
+        -980,
+        -100
+      ]
     },
     {
       "parameters": {},
@@ -15,22 +27,71 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-980, 100]
+      "position": [
+        -980,
+        100
+      ]
     },
     {
       "parameters": {
-        "assignments": {"assignments": [
-          {"id": "site", "name": "site_url", "value": "https://mopshy.com", "type": "string"},
-          {"id": "minscore", "name": "min_score", "value": 70, "type": "number"},
-          {"id": "date", "name": "run_date", "value": "={{ $now.toISODate() }}", "type": "string"}
-        ]},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "site",
+              "name": "site_url",
+              "value": "https://mopshy.com",
+              "type": "string"
+            },
+            {
+              "id": "minscore",
+              "name": "min_score",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "date",
+              "name": "run_date",
+              "value": "={{ $now.toISODate() }}",
+              "type": "string"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "config",
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-740, 0]
+      "position": [
+        -740,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_opportunities?select=topic,target_keyword&order=created_at.desc&limit=300' }}",
+        "options": {},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "get-existing",
+      "name": "Get Existing Opportunities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -500,
+        0
+      ]
     },
     {
       "parameters": {
@@ -39,20 +100,30 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Content-Type", "value": "application/json"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
-        "options": {"timeout": 180000}
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's Trend Scout and SEO opportunity analyst. Today is ${$('Run Config').item.json.run_date}. Research CURRENT web developments plus evergreen demand at the intersection of AI automation, AI agents, n8n/Make/Zapier, sales automation, lead generation, CRM automation, customer support, operations, product/AI implementation, OpenAI, Anthropic, Gemini, Microsoft, Meta, HubSpot, and Salesforce. Identify 15 content opportunities for mopshy.com, mixed approximately 65% buyer-intent/evergreen commercial (n8n + workflow automation, lead response + AI receptionist, CRM/RevOps automation, AI agents for operations/support, industry-specific automation for professional services, healthcare services, SaaS, e-commerce, logistics, home services, insurance, legal, dental, real estate), 20% original evidence/frameworks/implementation insight, and 15% meaningful timely AI developments. Every opportunity should ideally support a money page. Mopshy already covers these topics/keywords, so do not repeat them unless the angle is genuinely new: ${$('Get Existing Opportunities').all().map(i => i.json.target_keyword || i.json.topic).filter(Boolean).slice(0, 100).join('; ')}. Favor user questions with real search or buyer intent and fresh developments where Mopshy can add a practical implementation viewpoint. Do not select gossip, weak rumors, or topics unrelated to Mopshy's services. Score each opportunity using: topical relevance 20, search intent 15, trend acceleration 15, commercial relevance 15, original insight availability 15, competition opportunity 10, AI citation potential 10. Return ONLY valid JSON with shape { candidates: [{topic, angle, source_type, target_keyword, search_intent_label, opportunity_score, topical_relevance, search_intent, trend_acceleration, commercial_relevance, original_insight, competition_opportunity, ai_citation_potential, cannibalization_risk, recommended_action, rationale, source_urls:[url]}] }. recommended_action must be publish, research, backlog, refresh, or ignore. Scores are 0-100 overall and component scores 0-100; cannibalization_risk is 0-1 where 0.65 or higher means the topic duplicates existing Mopshy coverage. Use refresh if the likely intent overlaps an existing general Mopshy guide.` }) }}",
+        "options": {
+          "timeout": 180000
+        }
       },
       "id": "discover",
       "name": "Research + Score Opportunities",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-500, 0]
+      "position": [
+        -260,
+        0
+      ]
     },
     {
       "parameters": {
@@ -62,19 +133,49 @@
       "name": "Parse Candidates",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-260, 0]
+      "position": [
+        -260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = (s) => String(s || '').toLowerCase().trim();\nconst existing = $('Get Existing Opportunities').all().map(i => i.json);\nconst seenTopics = new Set(existing.map(r => norm(r.topic)));\nconst seenKeywords = new Set(existing.map(r => norm(r.target_keyword)).filter(Boolean));\nconst candidates = $('Parse Candidates').all().map(i => i.json);\nconst fresh = candidates.filter(c => !seenTopics.has(norm(c.topic)) && !(c.target_keyword && seenKeywords.has(norm(c.target_keyword))));\nreturn [{ json: { candidates: fresh } }];"
+      },
+      "id": "dedupe",
+      "name": "Filter Existing Topics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_opportunities' }}",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Content-Type", "value": "application/json"},
-          {"name": "Prefer", "value": "return=representation"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -85,20 +186,401 @@
       "name": "Store Opportunities",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-20, 0]
+      "position": [
+        1180,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.search-opportunity&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1600,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent search-opportunity was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: 'search-opportunity', trigger: 'scheduled' } })"
+      },
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1120,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.candidates.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Candidates?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.candidates.map(x => ({ json: x }));"
+      },
+      "name": "Explode Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const get = (n) => { try { return $(n).all(); } catch (e) { return null; } };\nconst stored = get('Store Opportunities');\nconst planned = get('Explode Candidates');\nreturn [{ json: { summary: { candidates_generated: planned ? planned.length : 0, candidates_stored: stored ? stored.length : 0 }, tasks_created: 0 } }];"
+      },
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 })"
+      },
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 })"
+      },
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3680,
+        -80
+      ]
     }
   ],
   "connections": {
-    "Daily 6:30 AM MT": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Run Config": {"main": [[{"node": "Research + Score Opportunities", "type": "main", "index": 0}]]},
-    "Research + Score Opportunities": {"main": [[{"node": "Parse Candidates", "type": "main", "index": 0}]]},
-    "Parse Candidates": {"main": [[{"node": "Store Opportunities", "type": "main", "index": 0}]]}
+    "Daily 6:30 AM ET": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Research + Score Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research + Score Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Parse Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Candidates": {
+      "main": [
+        [
+          {
+            "node": "Filter Existing Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Existing Topics": {
+      "main": [
+        [
+          {
+            "node": "Has Candidates?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Candidates?": {
+      "main": [
+        [
+          {
+            "node": "Explode Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Candidates": {
+      "main": [
+        [
+          {
+            "node": "Store Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
-  "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
   "active": false,
   "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a001",
-  "meta": {"templateCredsSetupCompleted": false},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
   "tags": []
 }

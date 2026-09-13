@@ -16,7 +16,10 @@
       "name": "Every 15 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-760, 0]
+      "position": [
+        -760,
+        0
+      ]
     },
     {
       "parameters": {
@@ -42,7 +45,10 @@
       "name": "Create Run Context",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-540, 0]
+      "position": [
+        -540,
+        0
+      ]
     },
     {
       "parameters": {
@@ -66,7 +72,10 @@
       "name": "Get Active Agents",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-300, 0]
+      "position": [
+        -300,
+        0
+      ]
     },
     {
       "parameters": {
@@ -76,7 +85,10 @@
       "name": "Filter Due Agents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-60, 0]
+      "position": [
+        -60,
+        0
+      ]
     },
     {
       "parameters": {
@@ -102,27 +114,62 @@
       "name": "Dispatch Contract",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [180, 0]
+      "position": [
+        180,
+        0
+      ]
     }
   ],
   "connections": {
     "Every 15 Minutes": {
-      "main": [[{"node": "Create Run Context", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Create Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Create Run Context": {
-      "main": [[{"node": "Get Active Agents", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Get Active Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Active Agents": {
-      "main": [[{"node": "Filter Due Agents", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Filter Due Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filter Due Agents": {
-      "main": [[{"node": "Dispatch Contract", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Dispatch Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "00000000-0000-4000-8000-000000000000",

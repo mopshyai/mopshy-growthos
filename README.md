@@ -30,6 +30,9 @@ Continuously improve Mopshy's visibility, authority, qualified pipeline, and rev
 13 Reputation Intelligence
 14 Lead Intent
 15 Growth Director
+16 Content Performance
+
+All 16 agents have n8n workflows in `n8n/` (see `docs/N8N_WORKFLOWS.md` for the registry, schedules, and credentials).
 
 ## Principles
 1. Evidence before action.

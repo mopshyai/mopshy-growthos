@@ -13,5 +13,6 @@
   {"id":12,"slug":"competitor-intelligence","name":"Competitor Intelligence","autonomy":"green","schedule":"daily"},
   {"id":13,"slug":"reputation-intelligence","name":"Reputation Intelligence","autonomy":"green","schedule":"hourly"},
   {"id":14,"slug":"lead-intent","name":"Lead Intent","autonomy":"green","schedule":"hourly"},
-  {"id":15,"slug":"growth-director","name":"Growth Director","autonomy":"green","schedule":"daily"}
+  {"id":15,"slug":"growth-director","name":"Growth Director","autonomy":"green","schedule":"daily"},
+  {"id":16,"slug":"content-performance","name":"Content Performance","autonomy":"green","schedule":"daily"}
 ]

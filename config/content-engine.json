@@ -3,11 +3,12 @@
   "site": "https://mopshy.com",
   "targetRepo": "mopshyai/mopshy-ai-growth-engine",
   "targetBranch": "main",
-  "timezone": "America/Denver",
+  "timezone": "America/New_York",
   "cadence": {
     "researchDaily": true,
     "maxPublishesPerDay": 1,
-    "weeklyRefreshDay": "SUNDAY"
+    "weeklyRefreshDay": "SUNDAY",
+    "timezoneNote": "All schedules run in America/New_York."
   },
   "publishing": {
     "mode": "pull_request",
@@ -32,9 +33,9 @@
     "aiCitationPotential": 10
   },
   "contentMix": {
-    "evergreenBuyerIntent": 0.5,
-    "trendingFreshness": 0.3,
-    "originalResearch": 0.2
+    "buyerIntentEvergreenCommercial": 0.65,
+    "originalEvidenceAndFrameworks": 0.2,
+    "timelyAIDevelopments": 0.15
   },
   "allowedCategories": [
     "AI News",

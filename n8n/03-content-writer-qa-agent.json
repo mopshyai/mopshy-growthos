@@ -2,44 +2,85 @@
   "name": "03 - Autonomous Content Writer + QA",
   "nodes": [
     {
-      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "15 7 * * *"}]}},
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "15 7 * * *"
+            }
+          ]
+        }
+      },
       "id": "daily-trigger",
-      "name": "Daily 7:15 AM MT",
+      "name": "Daily 7:15 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1240, 0]
+      "position": [
+        -1240,
+        0
+      ]
     },
     {
       "parameters": {
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities?status=eq.discovered&recommended_action=eq.publish&opportunity_score=gte.82&order=opportunity_score.desc&limit=1",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
-        "options": {}
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_opportunities?status=eq.discovered&recommended_action=eq.publish&opportunity_score=gte.82&order=opportunity_score.desc&limit=1' }}",
+        "options": {},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
       },
       "id": "get-candidate",
       "name": "Get Best Publish Candidate",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-1000, 0]
+      "position": [
+        -1000,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "if (!items.length || !items[0].json.id) return []; const c = items[0].json; if ((Number(c.cannibalization_risk)||0) > 0.65) return []; return items;"
+        "jsCode": "if (!items.length || !items[0].json.id) return [{ json: { no_candidate: true } }];\nconst c = items[0].json;\nif ((Number(c.cannibalization_risk) || 0) > 0.65) return [{ json: { no_candidate: true, reason: 'cannibalization_risk_above_threshold', candidate_id: c.id } }];\nreturn items;"
       },
       "id": "candidate-gate",
       "name": "Candidate Gate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-760, 0]
+      "position": [
+        -760,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities?id=eq.' + $json.id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_opportunities?id=eq.' + $json.id }}' }}",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -50,7 +91,10 @@
       "name": "Mark Researching",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-520, -120]
+      "position": [
+        -520,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -59,20 +103,30 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Content-Type", "value": "application/json"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `Act as Mopshy's research editor and writer. Research this approved opportunity deeply using CURRENT web sources. OPPORTUNITY: ${JSON.stringify($('Candidate Gate').item.json)}. Write a genuinely useful Mopshy article for business operators. Evidence requirements are strict: return at least 3 credible sources, at least 1 must be a primary source, and use primary sources for changing product, policy, pricing, benchmark, release, security, or technical claims whenever available. Do not invent facts, statistics, customer outcomes, first-hand tests, quotes, pricing, dates, capabilities, or claims that Mopshy personally tested something unless that evidence is explicitly provided. Separate sourced facts from Mopshy's analysis. Add a distinct practical Mopshy contribution such as a workflow architecture, decision framework, implementation pattern, teardown, or trade-off analysis. Answer the core query near the top. Include at least 3 relevant internal-link suggestions using real Mopshy paths beginning with /. Avoid near-duplicate keyword pages and generic SEO filler. Return ONLY JSON: {slug,category,title,excerpt,readTime,metaTitle,metaDescription,keywords:[string],body:[{type:'p'|'h2'|'h3'|'ul'|'quote'|'links',text?,items?,title?}],faqs:[{q,a}],sources:[{url,publisher,title,publishedAt,claims:[string],primary:boolean}],internal_links:[{label,url}],research_notes:string}. Ensure the body is publication-grade, specific, useful, and defensible from the returned evidence.` }) }}",
-        "options": {"timeout": 240000}
+        "options": {
+          "timeout": 240000
+        }
       },
       "id": "research-write",
       "name": "Research + Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-280, 80]
+      "position": [
+        -280,
+        80
+      ]
     },
     {
       "parameters": {
@@ -82,7 +136,10 @@
       "name": "Parse Draft",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-40, 80]
+      "position": [
+        -40,
+        80
+      ]
     },
     {
       "parameters": {
@@ -91,62 +148,105 @@
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Content-Type", "value": "application/json"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are an independent senior fact checker, SEO/AEO editor, and anti-spam quality gate. Audit the following Mopshy article WITHOUT trusting the writer's research. Re-open and verify changing claims from reliable current sources. Check every quantitative claim, date, price, product capability, policy, release detail, quoted idea, and any implied first-hand Mopshy result. Confirm there are at least 3 credible sources, at least one genuine primary source, and at least 3 relevant internal Mopshy links. ARTICLE: ${JSON.stringify($json)}. Return ONLY JSON: {quality_score:number, fact_check_passed:boolean, primary_source_present:boolean, source_count:number, internal_link_count:number, unsupported_claim_count:number, unsupported_claims:[{claim,reason}], outdated_claims:[string], source_quality_issues:[string], seo_aeo_issues:[string], originality_issues:[string], corrections:[string], verdict:'PASS'|'BLOCK'}. PASS only if quality_score >=90, unsupported material factual claims = 0, fact checking passes, source_count >=3, primary_source_present=true, internal_link_count >=3, the headline is fully supported, sources are credible, search intent is answered directly, and the article adds non-commodity practical value. BLOCK generic scaled-content material, unverifiable experience claims, thin rewrites, or content written mainly to manufacture keyword variants.` }) }}",
-        "options": {"timeout": 240000}
+        "options": {
+          "timeout": 240000
+        }
       },
       "id": "qa",
       "name": "Independent Fact Check + QA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [200, 80]
+      "position": [
+        200,
+        80
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const r=items[0].json; const text=r.output_text || r.output?.flatMap(o=>o.content||[]).find(c=>c.type==='output_text')?.text || ''; let q; try{q=JSON.parse(text)}catch(e){const m=text.match(/\\{[\\s\\S]*\\}/); if(!m) throw e; q=JSON.parse(m[0]);} const d=$('Parse Draft').item.json; const sources=Array.isArray(d.sources)?d.sources.filter(s=>s&&s.url):[]; const internal=Array.isArray(d.internal_links)?d.internal_links.filter(x=>x&&x.url&&String(x.url).startsWith('/')):[]; const writerPrimary=sources.some(s=>s.primary===true); const ready=q.verdict==='PASS' && Number(q.quality_score)>=90 && Number(q.unsupported_claim_count)===0 && q.fact_check_passed===true && q.primary_source_present===true && Number(q.source_count)>=3 && Number(q.internal_link_count)>=3 && sources.length>=3 && internal.length>=3 && writerPrimary; return [{json:{draft:d,qa:q,ready}}];"
+        "jsCode": "const r=items[0].json; const text=r.output_text || r.output?.flatMap(o=>o.content||[]).find(c=>c.type==='output_text')?.text || ''; let q; try{q=JSON.parse(text)}catch(e){const m=text.match(/\\{[\\s\\S]*\\}/); if(!m) throw e; q=JSON.parse(m[0]);} const d=$('Parse Draft').item.json; const sources=Array.isArray(d.sources)?d.sources.filter(s=>s&&s.url):[]; const internal=Array.isArray(d.internal_links)?d.internal_links.filter(x=>x&&x.url&&String(x.url).startsWith('/')):[]; const writerPrimary=sources.some(s=>s.primary===true); const noOutdated=!Array.isArray(q.outdated_claims)||q.outdated_claims.length===0; const ready=q.verdict==='PASS' && noOutdated && Number(q.quality_score)>=90 && Number(q.unsupported_claim_count)===0 && q.fact_check_passed===true && q.primary_source_present===true && Number(q.source_count)>=3 && Number(q.internal_link_count)>=3 && sources.length>=3 && internal.length>=3 && writerPrimary; return [{json:{draft:d,qa:q,ready}}];"
       },
       "id": "gate",
       "name": "Publication Gate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 80]
+      "position": [
+        440,
+        80
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_drafts",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts' }}",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [
-          {"name": "Content-Type", "value": "application/json"},
-          {"name": "Prefer", "value": "return=representation"}
-        ]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ opportunity_id: $json.draft.opportunity_id, slug: $json.draft.slug, title: $json.draft.title, category: $json.draft.category, excerpt: $json.draft.excerpt, meta_title: $json.draft.metaTitle, meta_description: $json.draft.metaDescription, keywords: $json.draft.keywords || [], body: $json.draft.body || [], faqs: $json.draft.faqs || [], sources: $json.draft.sources || [], internal_links: $json.draft.internal_links || [], quality_score: $json.qa.quality_score, fact_check_passed: $json.qa.fact_check_passed, primary_source_present: $json.qa.primary_source_present, unsupported_claim_count: $json.qa.unsupported_claim_count, commercial_relevance_score: $('Candidate Gate').item.json.commercial_relevance, status: $json.ready ? 'ready' : 'blocked', qa_report: $json.qa }) }}",
+        "body": "={{ JSON.stringify({ opportunity_id: $json.draft.opportunity_id, slug: $json.draft.slug, title: $json.draft.title, category: $json.draft.category, excerpt: $json.draft.excerpt, read_time: $json.draft.readTime || null, meta_title: $json.draft.metaTitle, meta_description: $json.draft.metaDescription, keywords: $json.draft.keywords || [], body: $json.draft.body || [], faqs: $json.draft.faqs || [], sources: $json.draft.sources || [], internal_links: $json.draft.internal_links || [], quality_score: $json.qa.quality_score, fact_check_passed: $json.qa.fact_check_passed, primary_source_present: $json.qa.primary_source_present, unsupported_claim_count: $json.qa.unsupported_claim_count, commercial_relevance_score: $('Candidate Gate').item.json.commercial_relevance, status: $json.ready ? 'ready' : 'blocked', qa_report: $json.qa }) }}",
         "options": {}
       },
       "id": "store-draft",
       "name": "Store QA'd Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 80]
+      "position": [
+        680,
+        80
+      ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/content_opportunities?id=eq.' + $('Candidate Gate').item.json.id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_opportunities?id=eq.' + $('Candidate Gate').item.json.id }}' }}",
         "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -157,23 +257,395 @@
       "name": "Update Opportunity Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [920, 80]
+      "position": [
+        920,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.content-production&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1600,
+        -80
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent content-production was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
+      },
+      "name": "Validate Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: 'content-production', trigger: 'scheduled' } })"
+      },
+      "name": "Create Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1120,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.no_candidate }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Candidate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const get = (n) => { try { return $(n).all(); } catch (e) { return null; } };\nconst gate = get('Publication Gate');\nlet summary;\nif (gate) { const ready = gate.filter(i => i.json.ready).length; summary = { drafts_created: gate.length, ready, blocked: gate.length - ready }; }\nelse { summary = { drafts_created: 0, no_candidate: true }; }\nreturn [{ json: { summary, tasks_created: 0 } }];"
+      },
+      "name": "Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 })"
+      },
+      "name": "Complete Agent Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3440,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 })"
+      },
+      "name": "Update Agent Last Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3680,
+        -80
+      ]
     }
   ],
   "connections": {
-    "Daily 7:15 AM MT": {"main": [[{"node": "Get Best Publish Candidate", "type": "main", "index": 0}]]},
-    "Get Best Publish Candidate": {"main": [[{"node": "Candidate Gate", "type": "main", "index": 0}]]},
-    "Candidate Gate": {"main": [[{"node": "Mark Researching", "type": "main", "index": 0}, {"node": "Research + Draft", "type": "main", "index": 0}]]},
-    "Research + Draft": {"main": [[{"node": "Parse Draft", "type": "main", "index": 0}]]},
-    "Parse Draft": {"main": [[{"node": "Independent Fact Check + QA", "type": "main", "index": 0}]]},
-    "Independent Fact Check + QA": {"main": [[{"node": "Publication Gate", "type": "main", "index": 0}]]},
-    "Publication Gate": {"main": [[{"node": "Store QA'd Draft", "type": "main", "index": 0}]]},
-    "Store QA'd Draft": {"main": [[{"node": "Update Opportunity Status", "type": "main", "index": 0}]]}
+    "Get Best Publish Candidate": {
+      "main": [
+        [
+          {
+            "node": "Candidate Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Gate": {
+      "main": [
+        [
+          {
+            "node": "Has Candidate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research + Draft": {
+      "main": [
+        [
+          {
+            "node": "Parse Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Draft": {
+      "main": [
+        [
+          {
+            "node": "Independent Fact Check + QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Independent Fact Check + QA": {
+      "main": [
+        [
+          {
+            "node": "Publication Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publication Gate": {
+      "main": [
+        [
+          {
+            "node": "Store QA'd Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store QA'd Draft": {
+      "main": [
+        [
+          {
+            "node": "Update Opportunity Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 7:15 AM ET": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Get Best Publish Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Candidate?": {
+      "main": [
+        [
+          {
+            "node": "Mark Researching",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Research + Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Opportunity Status": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
-  "settings": {"executionOrder": "v1", "timezone": "America/Denver"},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
   "active": false,
   "versionId": "8ce6b99f-4c0e-4ffc-8c23-17446323a006",
-  "meta": {"templateCredsSetupCompleted": false},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
   "tags": []
 }

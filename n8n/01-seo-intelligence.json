@@ -1,21 +1,59 @@
 {
-  "name": "01 - SEO Intelligence v2",
+  "name": "01 - SEO Intelligence v3",
   "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 5 * * *"
+            }
+          ]
+        }
+      },
+      "id": "daily-trigger",
+      "name": "Daily 5:30 AM ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1480,
+        -200
+      ]
+    },
     {
       "parameters": {},
       "id": "manual-trigger",
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-1080, 0]
+      "position": [
+        -1480,
+        40
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "agent-slug", "name": "agent_slug", "value": "seo-intelligence", "type": "string"},
-            {"id": "site-url", "name": "site_url", "value": "https://mopshy.com/", "type": "string"},
-            {"id": "run-mode", "name": "run_mode", "value": "manual", "type": "string"}
+            {
+              "id": "agent-slug",
+              "name": "agent_slug",
+              "value": "seo-intelligence",
+              "type": "string"
+            },
+            {
+              "id": "site-url",
+              "name": "site_url",
+              "value": "={{ $env.GSC_SITE_URL || 'https://mopshy.com/' }}",
+              "type": "string"
+            },
+            {
+              "id": "run-mode",
+              "name": "run_mode",
+              "value": "manual",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -24,20 +62,50 @@
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-860, 0]
+      "position": [
+        -1240,
+        -80
+      ]
     },
     {
       "parameters": {
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agents?slug=eq.seo-intelligence&select=id,name,slug,autonomy,schedule&limit=1",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "jsCode": "const fmt = (d) => d.toISOString().slice(0, 10);\nconst now = new Date();\nconst curEnd = new Date(now); curEnd.setUTCDate(curEnd.getUTCDate() - 1);\nconst curStart = new Date(curEnd); curStart.setUTCDate(curStart.getUTCDate() - 27);\nconst prevEnd = new Date(curStart); prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);\nconst prevStart = new Date(prevEnd); prevStart.setUTCDate(prevStart.getUTCDate() - 27);\nreturn [{ json: { windows: { cur_start: fmt(curStart), cur_end: fmt(curEnd), prev_start: fmt(prevStart), prev_end: fmt(prevEnd), window_days: 28 } } }];"
+      },
+      "id": "compute-windows",
+      "name": "Compute Windows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.seo-intelligence&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "get-seo-agent",
       "name": "Get SEO Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-620, 0]
+      "position": [
+        -760,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -47,87 +115,556 @@
       "name": "Validate SEO Agent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-380, 0]
+      "position": [
+        -520,
+        -80
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agent_runs",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=representation"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ agent_id: $('Validate SEO Agent').item.json.id, status: 'running', input: { agent_slug: $('Run Config').item.json.agent_slug, site_url: $('Run Config').item.json.site_url, run_mode: $('Run Config').item.json.run_mode } }) }}",
+        "body": "={{ JSON.stringify({ agent_id: $('Validate SEO Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, site_url: $('Run Config').first().json.site_url, run_mode: $('Run Config').first().json.run_mode, window_days: 28 } }) }}",
         "options": {}
       },
       "id": "create-run",
       "name": "Create Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-140, 0]
+      "position": [
+        -280,
+        -80
+      ]
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {"id": "stage-status", "name": "seo_stage_status", "value": "ready_for_google_data", "type": "string"},
-            {"id": "stage-message", "name": "message", "value": "Agent identity and run logging are working. Next: connect Google Search Console and GA4, then replace this node with live SEO data retrieval and scoring.", "type": "string"},
-            {"id": "run-id", "name": "agent_run_id", "value": "={{ $json.id }}", "type": "string"},
-            {"id": "agent-id", "name": "agent_id", "value": "={{ $('Validate SEO Agent').item.json.id }}", "type": "string"}
-          ]
-        },
-        "options": {}
-      },
-      "id": "seo-stage",
-      "name": "SEO Stage Ready",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [100, 0]
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agent_runs?id=eq.' + $('SEO Stage Ready').item.json.agent_run_id }}",
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($('Run Config').first().json.site_url) + '/searchAnalytics/query' }}",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "nodeCredentialType": "googleOAuth2Api",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=representation"}
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { stage: $('SEO Stage Ready').item.json.seo_stage_status, message: $('SEO Stage Ready').item.json.message } }) }}",
+        "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end, dimensions: ['query'], rowLimit: 1000 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gsc-cur-queries",
+      "name": "GSC Current Queries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($('Run Config').first().json.site_url) + '/searchAnalytics/query' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.prev_start, endDate: $('Compute Windows').first().json.windows.prev_end, dimensions: ['query'], rowLimit: 1000 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gsc-prev-queries",
+      "name": "GSC Previous Queries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($('Run Config').first().json.site_url) + '/searchAnalytics/query' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end, dimensions: ['page'], rowLimit: 1000 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gsc-cur-pages",
+      "name": "GSC Current Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($('Run Config').first().json.site_url) + '/searchAnalytics/query' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.prev_start, endDate: $('Compute Windows').first().json.windows.prev_end, dimensions: ['page'], rowLimit: 1000 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gsc-prev-pages",
+      "name": "GSC Previous Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent($('Run Config').first().json.site_url) + '/searchAnalytics/query' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end, dimensions: ['query', 'page'], rowLimit: 2500 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gsc-qp-rows",
+      "name": "GSC Query Page Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $env.GA4_PROPERTY_ID }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ga4-configured",
+      "name": "GA4 Configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://analyticsdata.googleapis.com/v1beta/properties/' + $env.GA4_PROPERTY_ID + ':runReport' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ dateRanges: [{ startDate: $('Compute Windows').first().json.windows.cur_start, endDate: $('Compute Windows').first().json.windows.cur_end }], dimensions: [{ name: 'pagePath' }], metrics: [{ name: 'sessions' }, { name: 'conversions' }], limit: 500 }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ga4-organic",
+      "name": "GA4 Organic Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = (items[0].json && items[0].json.rows) || [];\nconst ga4_rows = rows.map(r => ({\n  path: (r.dimensionValues && r.dimensionValues[0] && r.dimensionValues[0].value) || '/',\n  sessions: Number((r.metricValues && r.metricValues[0] && r.metricValues[0].value) || 0),\n  conversions: Number((r.metricValues && r.metricValues[1] && r.metricValues[1].value) || 0)\n}));\nreturn [{ json: { ga4_rows } }];"
+      },
+      "id": "ga4-parse",
+      "name": "GA4 Sessions Parsed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": []
+        },
+        "options": {}
+      },
+      "id": "ga4-skipped",
+      "name": "GA4 Skipped",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        200,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Run Config').first().json.site_url.replace(/\\/+$/, '') + '/sitemap.xml' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/xml, text/xml, */*"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "fetch-sitemap",
+      "name": "Fetch Sitemap",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = items[0].json.data || '';\nconst locs = [...raw.matchAll(/<loc>\\s*([^<\\s]+)\\s*<\\/loc>/gi)].map(m => m[1]);\nconst isIndex = /<sitemapindex/i.test(raw);\nconst sitemap_urls = [...new Set(locs)].slice(0, 500);\nif (!isIndex && sitemap_urls.length === 0) { throw new Error('Sitemap returned no URLs. Check ' + $('Run Config').first().json.site_url + 'sitemap.xml'); }\nreturn [{ json: { sitemap_urls, sitemap_count: sitemap_urls.length, is_sitemap_index: isIndex } }];"
+      },
+      "id": "parse-sitemap",
+      "name": "Parse Sitemap URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 6
+      },
+      "id": "gather",
+      "name": "Gather Source Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        700,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rowsOf = (node) => $(node).all().map(i => i.json).filter(Boolean);\nconst mapQ = (list) => list.flatMap(r => r.rows || []).map(r => ({ query: r.keys[0], clicks: r.clicks || 0, impressions: r.impressions || 0, ctr: r.ctr || 0, position: r.position || 100 }));\nconst mapP = (list) => list.flatMap(r => r.rows || []).map(r => ({ url: r.keys[0], clicks: r.clicks || 0, impressions: r.impressions || 0, position: r.position || 100 }));\nconst qCur = mapQ(rowsOf('GSC Current Queries'));\nconst qPrev = mapQ(rowsOf('GSC Previous Queries'));\nconst pCur = mapP(rowsOf('GSC Current Pages'));\nconst pPrev = mapP(rowsOf('GSC Previous Pages'));\nconst qp = rowsOf('GSC Query Page Rows').flatMap(r => r.rows || []).map(r => ({ query: r.keys[0], url: r.keys[1], clicks: r.clicks || 0, impressions: r.impressions || 0 }));\nconst sitemap = rowsOf('Parse Sitemap URLs')[0] || { sitemap_urls: [] };\nlet ga4Rows = [];\ntry { ga4Rows = $('GA4 Sessions Parsed').first().json.ga4_rows || []; } catch (e) { ga4Rows = []; }\nconst agentId = $('Validate SEO Agent').first().json.id;\nconst runId = $('Create Agent Run').first().json.id;\nconst W = $('Compute Windows').first().json.windows;\n\nconst expectedCtr = (p) => {\n  const curve = [[1, 0.28], [2, 0.15], [3, 0.10], [4, 0.07], [5, 0.05], [6, 0.04], [7, 0.03], [8, 0.025], [9, 0.02], [10, 0.015]];\n  for (const [pos, ctr] of curve) { if (p <= pos) return ctr; }\n  if (p <= 20) return 0.008;\n  if (p <= 30) return 0.004;\n  return 0.002;\n};\n\nconst prevQMap = new Map(qPrev.map(r => [r.query, r]));\nconst prevPMap = new Map(pPrev.map(r => [r.url, r]));\nconst bestPageFor = (query) => {\n  const pages = qp.filter(x => x.query === query).sort((a, b) => b.impressions - a.impressions);\n  return pages[0] ? pages[0].url : null;\n};\n\n// CTR opportunities: strong visibility, weak click-through vs position benchmark.\nconst ctrOpps = qCur\n  .filter(r => r.impressions >= 100 && r.position <= 12 && (r.clicks / Math.max(1, r.impressions)) < expectedCtr(r.position) * 0.65)\n  .map(r => ({ ...r, expected_ctr: expectedCtr(r.position), actual_ctr: r.clicks / Math.max(1, r.impressions) }))\n  .sort((a, b) => b.impressions - a.impressions).slice(0, 8);\n\n// Striking distance: page 2 / top-20 rankings worth pushing.\nconst rankOpps = qCur\n  .filter(r => r.impressions >= 50 && r.position > 4 && r.position <= 20)\n  .sort((a, b) => a.position - b.position).slice(0, 8);\n\n// Declining pages: meaningful clicks lost vs previous window.\nconst declining = pCur\n  .map(r => {\n    const prev = prevPMap.get(r.url);\n    return prev && prev.clicks >= 20 && r.clicks < prev.clicks * 0.8\n      ? { url: r.url, cur_clicks: r.clicks, prev_clicks: prev.clicks, cur_position: r.position, prev_position: prev.position }\n      : null;\n  })\n  .filter(Boolean)\n  .sort((a, b) => (b.prev_clicks - b.cur_clicks) - (a.prev_clicks - a.cur_clicks)).slice(0, 8);\n\n// Emerging queries: new demand or large position gains.\nconst emerging = qCur\n  .filter(r => r.clicks >= 5)\n  .map(r => {\n    const prev = prevQMap.get(r.query);\n    const improved = prev ? prev.position - r.position : 0;\n    const isNew = !prev || prev.clicks === 0;\n    return isNew || improved >= 10\n      ? { query: r.query, clicks: r.clicks, impressions: r.impressions, position: r.position, previous_position: prev ? prev.position : null }\n      : null;\n  })\n  .filter(Boolean).slice(0, 10);\n\n// Cannibalization: same query served by multiple pages.\nconst byQuery = new Map();\nfor (const row of qp) {\n  if (row.impressions >= 20) {\n    if (!byQuery.has(row.query)) byQuery.set(row.query, new Map());\n    byQuery.get(row.query).set(row.url, row);\n  }\n}\nconst cannibalization = [];\nfor (const [query, pages] of byQuery) {\n  if (pages.size >= 2) {\n    cannibalization.push({ query, pages: [...pages.values()].map(p => ({ url: p.url, impressions: p.impressions, clicks: p.clicks })) });\n  }\n  if (cannibalization.length >= 5) break;\n}\n\n// Pages in sitemap with zero current search visibility.\nconst seenPages = new Set(pCur.filter(r => r.impressions > 0).map(r => r.url.replace(/\\/$/, '')));\nconst zeroVisibility = (sitemap.sitemap_urls || []).filter(u => !seenPages.has(u.replace(/\\/$/, ''))).slice(0, 10);\n\n// Keyword memory upserts.\nconst kwMap = new Map();\nconst addKw = (r, tag) => {\n  if (!r || !r.query) return;\n  const cur = kwMap.get(r.query) || { keyword: r.query, opportunity_score: 0, metrics: { window: '28d', signals: [], impressions: 0, clicks: 0, position: null } };\n  cur.metrics.impressions = Math.max(cur.metrics.impressions, r.impressions || 0);\n  cur.metrics.clicks = Math.max(cur.metrics.clicks, r.clicks || 0);\n  cur.metrics.position = r.position || cur.metrics.position;\n  if (!cur.metrics.signals.includes(tag)) cur.metrics.signals.push(tag);\n  kwMap.set(r.query, cur);\n};\nctrOpps.forEach(r => addKw(r, 'ctr_opportunity'));\nrankOpps.forEach(r => addKw(r, 'striking_distance'));\nemerging.forEach(r => addKw(r, 'emerging'));\nconst keyword_upserts = [...kwMap.values()].map(k => {\n  const imp = k.metrics.impressions;\n  const pos = k.metrics.position || 100;\n  k.opportunity_score = Math.max(5, Math.min(100, Math.round((imp >= 500 ? 35 : imp >= 100 ? 25 : 10) + (pos <= 10 ? 35 : pos <= 20 ? 25 : 10) + k.metrics.signals.length * 10)));\n  return k;\n});\n\n// Page memory upserts with GA4 enrichment.\nconst ga4ByPath = new Map(ga4Rows.map(g => [g.path.replace(/\\/$/, ''), g]));\nconst page_upserts = pCur\n  .filter(r => r.impressions > 0)\n  .sort((a, b) => b.clicks - a.clicks).slice(0, 100)\n  .map(r => {\n    const path = r.url.replace(/^https?:\\/\\/[^/]+/, '').replace(/\\/$/, '');\n    const ga = ga4ByPath.get(path);\n    return { url: r.url, metrics: { window: '28d', clicks: r.clicks, impressions: r.impressions, avg_position: r.position, ga4_sessions: ga ? ga.sessions : null, ga4_conversions: ga ? ga.conversions : null } };\n  });\n\n// Daily SEO task list.\nconst tasks = [];\nconst mk = (task_type, priority, title, description, payload) => tasks.push({\n  created_by_agent: agentId, task_type, title, description, priority,\n  confidence: 0.7, expected_impact: payload.expected_impact || null,\n  status: 'queued', requires_approval: false, payload\n});\nfor (const r of ctrOpps) mk('seo_ctr_opportunity', 'P2',\n  'Improve CTR: ' + r.query,\n  'Query ranks at position ' + Number(r.position).toFixed(1) + ' with ' + r.impressions + ' impressions but CTR ' + (r.actual_ctr * 100).toFixed(1) + '% is below the ' + (r.expected_ctr * 100).toFixed(1) + '% benchmark for this position. Rewrite title/meta on the ranking page to match intent.',\n  { query: r.query, url: bestPageFor(r.query), impressions: r.impressions, actual_ctr: r.actual_ctr, expected_ctr: r.expected_ctr, expected_impact: 'recover ' + Math.round(r.impressions * (r.expected_ctr - r.actual_ctr)) + ' clicks/28d' });\nfor (const r of rankOpps) mk('seo_ranking_opportunity', 'P2',\n  'Push striking-distance query: ' + r.query,\n  'Query sits at position ' + Number(r.position).toFixed(1) + ' with ' + r.impressions + ' impressions. Add depth, internal links, and entity coverage to reach page one.',\n  { query: r.query, url: bestPageFor(r.query), impressions: r.impressions, position: r.position, expected_impact: 'page-one ranking potential' });\nfor (const d of declining) mk('seo_declining_page', 'P1',\n  'Investigate declining page: ' + d.url,\n  'Clicks fell from ' + d.prev_clicks + ' to ' + d.cur_clicks + ' vs the previous 28 days (avg position ' + Number(d.prev_position).toFixed(1) + ' to ' + Number(d.cur_position).toFixed(1) + '). Check SERP changes, content freshness, and technical issues.',\n  { url: d.url, cur_clicks: d.cur_clicks, prev_clicks: d.prev_clicks, expected_impact: 'recover lost clicks' });\nfor (const r of emerging) mk('seo_emerging_query', 'P3',\n  'Emerging query: ' + r.query,\n  'Query gained traction (' + r.clicks + ' clicks, position ' + Number(r.position).toFixed(1) + (r.previous_position ? ', up from ' + Number(r.previous_position).toFixed(1) : '') + '). Evaluate a dedicated section or article.',\n  { query: r.query, clicks: r.clicks, impressions: r.impressions, position: r.position, expected_impact: 'ride growing demand' });\nfor (const c of cannibalization) mk('seo_cannibalization', 'P2',\n  'Resolve cannibalization: ' + c.query,\n  'Query is served by ' + c.pages.length + ' competing URLs (' + c.pages.map(p => p.url).join(', ') + '). Consolidate, differentiate intents, or canonicalize.',\n  { query: c.query, pages: c.pages, expected_impact: 'consolidate ranking signals' });\nfor (const u of zeroVisibility) mk('seo_zero_visibility', 'P3',\n  'No search visibility: ' + u,\n  'Page is in the sitemap but earned zero impressions in the current 28-day window. Confirm indexation, intent, and internal linking.',\n  { url: u, expected_impact: 'indexation hygiene' });\n\nreturn [{ json: {\n  agent_id: agentId,\n  agent_run_id: runId,\n  site_url: $('Run Config').first().json.site_url,\n  windows: W,\n  summary: {\n    ctr_opportunities: ctrOpps.length,\n    ranking_opportunities: rankOpps.length,\n    declining_pages: declining.length,\n    emerging_queries: emerging.length,\n    cannibalization_queries: cannibalization.length,\n    zero_visibility_pages: zeroVisibility.length,\n    keywords_upserted: keyword_upserts.length,\n    pages_upserted: page_upserts.length,\n    tasks_created: tasks.length\n  },\n  keyword_upserts,\n  page_upserts,\n  tasks\n} }];"
+      },
+      "id": "analyze",
+      "name": "Analyze SEO Signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/keywords?on_conflict=keyword' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Analyze SEO Signals').first().json.keyword_upserts) }}",
+        "options": {}
+      },
+      "id": "upsert-keywords",
+      "name": "Upsert Keywords",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/pages?on_conflict=url' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Analyze SEO Signals').first().json.page_upserts) }}",
+        "options": {}
+      },
+      "id": "upsert-pages",
+      "name": "Upsert Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Analyze SEO Signals').first().json.tasks) }}",
+        "options": {}
+      },
+      "id": "create-tasks",
+      "name": "Create SEO Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1620,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Analyze SEO Signals').first().json.agent_run_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Analyze SEO Signals').first().json.summary }, tasks_created: $('Analyze SEO Signals').first().json.tasks.length }) }}",
         "options": {}
       },
       "id": "complete-run",
       "name": "Complete Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [340, 0]
+      "position": [
+        1840,
+        160
+      ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ 'https://ftchgfwahjeqbyilsmjn.supabase.co/rest/v1/agents?id=eq.' + $('SEO Stage Ready').item.json.agent_id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "supabaseApi",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Analyze SEO Signals').first().json.agent_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=representation"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
@@ -140,17 +677,45 @@
       "name": "Update Agent Last Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [580, 0]
+      "position": [
+        2060,
+        160
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "result", "name": "result", "value": "SEO Intelligence v2 foundation completed successfully", "type": "string"},
-            {"id": "next", "name": "next_step", "value": "Connect Google Search Console and Google Analytics credentials in n8n MOPSHY GROWTHOS.", "type": "string"},
-            {"id": "site", "name": "site_url", "value": "={{ $('Run Config').item.json.site_url }}", "type": "string"},
-            {"id": "agent", "name": "agent_id", "value": "={{ $('SEO Stage Ready').item.json.agent_id }}", "type": "string"},
-            {"id": "run", "name": "agent_run_id", "value": "={{ $('SEO Stage Ready').item.json.agent_run_id }}", "type": "string"}
+            {
+              "id": "result",
+              "name": "result",
+              "value": "SEO Intelligence run complete",
+              "type": "string"
+            },
+            {
+              "id": "summary",
+              "name": "summary",
+              "value": "={{ JSON.stringify($('Analyze SEO Signals').first().json.summary) }}",
+              "type": "string"
+            },
+            {
+              "id": "site",
+              "name": "site_url",
+              "value": "={{ $('Analyze SEO Signals').first().json.site_url }}",
+              "type": "string"
+            },
+            {
+              "id": "agent",
+              "name": "agent_id",
+              "value": "={{ $('Analyze SEO Signals').first().json.agent_id }}",
+              "type": "string"
+            },
+            {
+              "id": "run",
+              "name": "agent_run_id",
+              "value": "={{ $('Analyze SEO Signals').first().json.agent_run_id }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -159,26 +724,333 @@
       "name": "Return Summary",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [820, 0]
+      "position": [
+        2280,
+        160
+      ]
     }
   ],
   "connections": {
-    "Manual Trigger": {"main": [[{"node": "Run Config", "type": "main", "index": 0}]]},
-    "Run Config": {"main": [[{"node": "Get SEO Agent", "type": "main", "index": 0}]]},
-    "Get SEO Agent": {"main": [[{"node": "Validate SEO Agent", "type": "main", "index": 0}]]},
-    "Validate SEO Agent": {"main": [[{"node": "Create Agent Run", "type": "main", "index": 0}]]},
-    "Create Agent Run": {"main": [[{"node": "SEO Stage Ready", "type": "main", "index": 0}]]},
-    "SEO Stage Ready": {"main": [[{"node": "Complete Agent Run", "type": "main", "index": 0}]]},
-    "Complete Agent Run": {"main": [[{"node": "Update Agent Last Run", "type": "main", "index": 0}]]},
-    "Update Agent Last Run": {"main": [[{"node": "Return Summary", "type": "main", "index": 0}]]}
+    "Daily 5:30 AM ET": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Config": {
+      "main": [
+        [
+          {
+            "node": "Compute Windows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Windows": {
+      "main": [
+        [
+          {
+            "node": "Get SEO Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get SEO Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate SEO Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate SEO Agent": {
+      "main": [
+        [
+          {
+            "node": "Create Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Agent Run": {
+      "main": [
+        [
+          {
+            "node": "GSC Current Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Previous Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Current Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Previous Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GSC Query Page Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GA4 Configured?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GSC Current Queries": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GSC Previous Queries": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "GSC Current Pages": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "GSC Previous Pages": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "GSC Query Page Rows": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "GA4 Configured?": {
+      "main": [
+        [
+          {
+            "node": "GA4 Organic Pages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GA4 Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GA4 Organic Pages": {
+      "main": [
+        [
+          {
+            "node": "GA4 Sessions Parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GA4 Sessions Parsed": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "GA4 Skipped": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Fetch Sitemap": {
+      "main": [
+        [
+          {
+            "node": "Parse Sitemap URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Sitemap URLs": {
+      "main": [
+        [
+          {
+            "node": "Gather Source Data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Gather Source Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze SEO Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze SEO Signals": {
+      "main": [
+        [
+          {
+            "node": "Upsert Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Keywords": {
+      "main": [
+        [
+          {
+            "node": "Upsert Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Pages": {
+      "main": [
+        [
+          {
+            "node": "Create SEO Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create SEO Tasks": {
+      "main": [
+        [
+          {
+            "node": "Complete Agent Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Agent Run": {
+      "main": [
+        [
+          {
+            "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Agent Last Run": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
-  "versionId": "22222222-2222-4222-8222-222222222222",
+  "versionId": "22222222-2222-4222-8222-222222222223",
   "meta": {
     "templateCredsSetupCompleted": false
   },

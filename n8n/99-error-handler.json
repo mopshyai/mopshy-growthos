@@ -7,7 +7,10 @@
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
-      "position": [-520, 0]
+      "position": [
+        -520,
+        0
+      ]
     },
     {
       "parameters": {
@@ -17,7 +20,10 @@
       "name": "Normalize Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-280, 0]
+      "position": [
+        -280,
+        0
+      ]
     },
     {
       "parameters": {
@@ -26,22 +32,37 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {"name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Authorization", "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"},
-            {"name": "Content-Type", "value": "application/json"},
-            {"name": "Prefer", "value": "return=minimal"}
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json }}",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {}
       },
       "id": "log-error",
       "name": "Log System Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-40, 0]
+      "position": [
+        -40,
+        0
+      ]
     },
     {
       "parameters": {
@@ -61,21 +82,83 @@
       "name": "Prepare Telegram Alert",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [200, 0]
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.telegram_message }}",
+        "additionalFields": {}
+      },
+      "id": "send-alert",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ],
+      "webhookId": "growthos-error-alert"
     }
   ],
   "connections": {
-    "Error Trigger": {"main": [[{"node": "Normalize Error", "type": "main", "index": 0}]]},
-    "Normalize Error": {"main": [[{"node": "Log System Event", "type": "main", "index": 0}]]},
-    "Log System Event": {"main": [[{"node": "Prepare Telegram Alert", "type": "main", "index": 0}]]}
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Error": {
+      "main": [
+        [
+          {
+            "node": "Log System Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log System Event": {
+      "main": [
+        [
+          {
+            "node": "Prepare Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Telegram Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "timezone": "America/Denver"
+    "timezone": "America/New_York"
   },
   "active": false,
   "versionId": "00000000-0000-4000-8000-000000000099",
-  "meta": {"templateCredsSetupCompleted": false},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
   "tags": []
 }
