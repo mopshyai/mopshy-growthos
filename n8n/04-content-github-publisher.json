@@ -349,13 +349,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const get = (n) => { try { return $(n).all(); } catch (e) { return null; } };\nconst pr = get('Record PR');\nlet summary;\nif (pr) { summary = { prs_opened: pr.length }; }\nelse { summary = { prs_opened: 0, no_ready_draft: true }; }\nreturn [{ json: { summary, tasks_created: 0 } }];"
+        "jsCode": "// Multi-path summary: real PR, reused PR (publisher retry safety), dry-run, or\n// nothing ready. Uses whichever branch actually executed.\nconst get = (n) => { try { return $(n).all(); } catch (e) { return null; } };\nconst recorded = get('Record PR');\nconst reused = get('Record Existing PR');\nconst dry = get('Compose Dry-Run Outcome');\nlet summary;\nif (recorded) summary = { prs_opened: recorded.length };\nelse if (reused) summary = { prs_opened: 0, prs_reused: reused.length, note: 'existing open PR for this draft was reused (retry-safe)' };\nelse if (dry) summary = { dry_run: true, would_publish: dry[0].json.would_publish };\nelse summary = { prs_opened: 0, no_ready_draft: true };\nreturn [{ json: { summary, tasks_created: 0 } }];"
       },
       "name": "Build Run Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3200,
+        1420,
         -80
       ]
     },
@@ -434,6 +434,279 @@
         3680,
         -80
       ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?id=eq.' + $('Final Safety Gate').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'publishing' }) }}"
+      },
+      "id": "04-reserve",
+      "name": "Reserve Draft For Publishing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -260,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $env.GROWTHOS_DRY_RUN }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "04-dryrun",
+      "name": "Dry Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dry-run: prove what WOULD happen without touching GitHub. The draft stays\n// reserved as 'publishing' and is rolled back to 'ready' so a later real run\n// picks it up again.\nreturn [{ json: {\n  dry_run: true,\n  would_publish: {\n    slug: $('Final Safety Gate').first().json.slug,\n    title: $('Final Safety Gate').first().json.title,\n    note: 'Would create branch, one article file, and a review PR (no auto-merge)'\n  }\n} }];"
+      },
+      "id": "04-dryrun-event",
+      "name": "Compose Dry-Run Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?id=eq.' + $('Final Safety Gate').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'ready' }) }}"
+      },
+      "id": "04-rollback",
+      "name": "Roll Back Reservation (Dry Run)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/system_events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ event_type: 'publish_dry_run', severity: 'info', source: 'content-production', payload: $('Compose Dry-Run Outcome').first().json }) }}"
+      },
+      "id": "04-log-dryrun",
+      "name": "Log Dry-Run Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.github.com/repos/' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine') + '/pulls?head=' + ($env.GITHUB_REPO_MOPSHY_SITE || 'mopshyai/mopshy-ai-growth-engine').split('/')[0] + ':' + $('Prepare Isolated Article File').first().json.branch + '&state=open' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "04-check-pr",
+      "name": "Check Existing PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        -240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.html_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "04-pr-exists",
+      "name": "PR Already Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/content_drafts?id=eq.' + $('Final Safety Gate').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'publishing', github_pr_url: $json.html_url }) }}"
+      },
+      "id": "04-record-existing",
+      "name": "Record Existing PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        -360
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "04-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
     }
   ],
   "connections": {
@@ -459,22 +732,11 @@
         ]
       ]
     },
-    "Get Website Main SHA": {
-      "main": [
-        [
-          {
-            "node": "Prepare Isolated Article File",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Prepare Isolated Article File": {
       "main": [
         [
           {
-            "node": "Create Article Branch",
+            "node": "Check Existing PR",
             "type": "main",
             "index": 0
           }
@@ -562,7 +824,7 @@
       "main": [
         [
           {
-            "node": "Get Website Main SHA",
+            "node": "Reserve Draft For Publishing",
             "type": "main",
             "index": 0
           }
@@ -594,6 +856,11 @@
             "node": "Build Run Summary",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -603,6 +870,119 @@
         [
           {
             "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dry Run?": {
+      "main": [
+        [
+          {
+            "node": "Get Website Main SHA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose Dry-Run Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Dry-Run Outcome": {
+      "main": [
+        [
+          {
+            "node": "Roll Back Reservation (Dry Run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roll Back Reservation (Dry Run)": {
+      "main": [
+        [
+          {
+            "node": "Log Dry-Run Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Dry-Run Event": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Website Main SHA": {
+      "main": [
+        [
+          {
+            "node": "Prepare Isolated Article File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing PR": {
+      "main": [
+        [
+          {
+            "node": "PR Already Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PR Already Exists?": {
+      "main": [
+        [
+          {
+            "node": "Record Existing PR",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Article Branch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Existing PR": {
+      "main": [
+        [
+          {
+            "node": "Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }

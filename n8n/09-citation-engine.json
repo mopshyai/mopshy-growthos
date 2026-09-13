@@ -242,7 +242,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/citations' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/citations?on_conflict=directory_id' }}",
         "method": "POST",
         "sendHeaders": true,
         "headerParameters": {
@@ -261,7 +261,7 @@
             },
             {
               "name": "Prefer",
-              "value": "return=representation"
+              "value": "resolution=merge-duplicates,return=representation"
             }
           ]
         },
@@ -443,6 +443,17 @@
         3880,
         -80
       ]
+    },
+    {
+      "parameters": {},
+      "id": "09-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
     }
   ],
   "connections": {
@@ -604,6 +615,17 @@
         [
           {
             "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
             "type": "main",
             "index": 0
           }

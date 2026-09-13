@@ -917,6 +917,179 @@
         4000,
         90
       ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?task_type=eq.publishing_stuck&status=in.(queued,awaiting_approval)&select=title&limit=200' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "05-open-stuck",
+      "name": "Get Open Stuck Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        -320
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Recovery: a draft reserved as 'publishing' (by 04) that still has no PR URL\n// after 2 hours means the publisher died mid-flight. Raise a P1 task; do NOT\n// flip state automatically. Deduped against open stuck tasks.\nconst openTitles = new Set(items.map(i => i.json && i.json.title).filter(Boolean));\nconst stuck = $('Get Publishing Drafts').all().map(i => i.json)\n  .filter(d => d && d.id && !d.github_pr_url && (Date.now() - new Date(d.created_at || 0).getTime()) > 2 * 3600000\n               && !openTitles.has('Publishing stuck: ' + d.slug));\nreturn [{ json: { stuck, count: stuck.length } }];"
+      },
+      "id": "05-filter-stuck",
+      "name": "Filter Stuck Publishing Drafts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "05-has-stuck",
+      "name": "Has Stuck Drafts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.stuck.map(d => ({ json: d }));"
+      },
+      "id": "05-explode-stuck",
+      "name": "Explode Stuck Drafts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/system_events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ event_type: 'publishing_stuck', severity: 'P1', source: 'content-performance', payload: { draft_id: $json.id, slug: $json.slug, note: 'Draft reserved for publishing but no PR recorded within 2h.' } }) }}"
+      },
+      "id": "05-log-stuck",
+      "name": "Log Stuck Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ task_type: 'publishing_stuck', priority: 'P1', title: 'Publishing stuck: ' + $json.slug, description: 'Draft ' + $json.slug + ' was reserved for publishing but no GitHub PR was recorded within 2 hours. Inspect the 04 publisher execution and re-run or recover manually.', requires_approval: false, status: 'queued', payload: { draft_id: $json.id, slug: $json.slug }, created_by_agent: $('Validate Agent').first().json.id }) }}"
+      },
+      "id": "05-task-stuck",
+      "name": "Create Stuck Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "05-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
     }
   ],
   "connections": {
@@ -1283,6 +1456,66 @@
         [
           {
             "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Stuck Tasks": {
+      "main": [
+        [
+          {
+            "node": "Filter Stuck Publishing Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Stuck Publishing Drafts": {
+      "main": [
+        [
+          {
+            "node": "Has Stuck Drafts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Stuck Drafts?": {
+      "main": [
+        [
+          {
+            "node": "Explode Stuck Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explode Stuck Drafts": {
+      "main": [
+        [
+          {
+            "node": "Log Stuck Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Stuck Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
             "type": "main",
             "index": 0
           }

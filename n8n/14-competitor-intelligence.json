@@ -321,7 +321,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($('Build Run Summary').first().json.event_inserts) }}"
+        "body": "={{ JSON.stringify($('Filter Duplicate Events').first().json.event_inserts) }}"
       },
       "id": "cabcf4e4-0ed7-54f9-9082-4d46dbdc7c46",
       "name": "Insert Competitor Events",
@@ -495,6 +495,57 @@
       "position": [
         3880,
         -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/competitor_events?select=competitor_id,source_url&order=captured_at.desc&limit=300' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "14-get-events",
+      "name": "Get Recent Competitor Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        -240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Idempotency: drop events whose (competitor_id, source_url) was already\n// recorded, so a retried run cannot double-log the same competitor event.\nconst seen = new Set(items.map(i => i.json && (i.json.competitor_id + '|' + i.json.source_url)).filter(s => !s.endsWith('|') && !s.startsWith('|')));\nconst build = $('Build Run Summary').first().json;\nconst events = (build.event_inserts || []).filter(e => !seen.has(e.competitor_id + '|' + e.source_url));\nreturn [{ json: { event_inserts: events, tasks: build.tasks || [] } }];"
+      },
+      "id": "14-filter-events",
+      "name": "Filter Duplicate Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        -240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "14-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
       ]
     }
   ],
@@ -697,6 +748,46 @@
         [
           {
             "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Competitor Events": {
+      "main": [
+        [
+          {
+            "node": "Filter Duplicate Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Duplicate Events": {
+      "main": [
+        [
+          {
+            "node": "Insert Competitor Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explode Competitor Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
             "type": "main",
             "index": 0
           }

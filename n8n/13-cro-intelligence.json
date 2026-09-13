@@ -295,7 +295,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($('Build Run Summary').first().json.experiment_inserts) }}"
+        "body": "={{ JSON.stringify($('Filter Planned Experiments').first().json.experiment_inserts) }}"
       },
       "id": "792d502a-d347-5591-8103-46918a736427",
       "name": "Insert Experiments",
@@ -470,6 +470,57 @@
         3880,
         -80
       ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/experiments?status=eq.planned&select=id,page_url&limit=200' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "13-get-planned",
+      "name": "Get Planned Experiments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        -240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Idempotency: skip a planned experiment if one already exists (planned) for\n// the same landing page, so retries cannot stack duplicate experiments.\nconst planned = new Set(items.map(i => i.json && i.json.page_url).filter(Boolean));\nconst build = $('Build Run Summary').first().json;\nconst experiments = (build.experiment_inserts || []).filter(e => !planned.has(e.page_url));\nreturn [{ json: { experiment_inserts: experiments, tasks: build.tasks || [] } }];"
+      },
+      "id": "13-filter-planned",
+      "name": "Filter Planned Experiments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        -240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "13-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
     }
   ],
   "connections": {
@@ -638,6 +689,46 @@
         [
           {
             "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Planned Experiments": {
+      "main": [
+        [
+          {
+            "node": "Filter Planned Experiments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Planned Experiments": {
+      "main": [
+        [
+          {
+            "node": "Insert Experiments",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explode CRO Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
             "type": "main",
             "index": 0
           }
