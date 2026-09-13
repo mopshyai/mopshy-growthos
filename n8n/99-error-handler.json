@@ -3,32 +3,165 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "error-trigger",
+      "id": "99-error-trigger",
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
-        -520,
+        -1560,
         0
       ]
     },
     {
       "parameters": {
-        "jsCode": "const e = $json;\nconst execution = e.execution || {};\nconst workflow = e.workflow || {};\nreturn [{ json: {\n  event_type: 'workflow_error',\n  severity: 'critical',\n  source: workflow.name || 'unknown-workflow',\n  payload: {\n    workflow_id: workflow.id || null,\n    execution_id: execution.id || null,\n    execution_url: execution.url || null,\n    error_message: execution.error?.message || e.message || 'Unknown n8n workflow error',\n    error_stack: execution.error?.stack || null,\n    occurred_at: new Date().toISOString()\n  }\n} }];"
+        "jsCode": "const e = $json;\nconst execution = e.execution || {};\nconst workflow = e.workflow || {};\nreturn [{ json: {\n  workflow_name: workflow.name || 'unknown-workflow',\n  workflow_id: workflow.id || null,\n  execution_id: execution.id || null,\n  execution_url: execution.url || null,\n  error_message: (execution.error && execution.error.message) || e.message || 'Unknown n8n workflow error',\n  error_stack: (execution.error && execution.error.stack) || e.stack || null,\n  occurred_at: new Date().toISOString()\n} }];"
       },
-      "id": "normalize-error",
+      "id": "99-normalize-error",
       "name": "Normalize Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -280,
+        -1320,
         0
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/system_events' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?n8n_workflow_name=eq.' + encodeURIComponent('\"' + $('Normalize Error').first().json.workflow_name + '\"') + '&select=id,slug,name&limit=1' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "99-resolve-agent",
+      "name": "Resolve Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1080,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "99-agent-resolved?",
+      "name": "Agent Resolved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?agent_id=eq.' + $('Resolve Agent').first().json.id + '&status=eq.running&order=started_at.desc&limit=1&select=id,agent_id,started_at' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "99-find-running-run",
+      "name": "Find Running Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -600,
+        -120
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Conservative matching: only the NEWEST running run for the resolved agent,\n// and only within a 6h recency boundary. Anything else is logged without\n// mutating an unrelated run.\nconst RECENCY_MS = 6 * 3600 * 1000;\nconst err = $('Normalize Error').first().json;\nlet agent = null; try { agent = $('Resolve Agent').first().json; } catch (e) {}\nconst hasAgent = Boolean(agent && agent.id);\nlet run = null; try { run = $('Find Running Run').first().json; } catch (e) {}\nlet matched = null;\nif (hasAgent && run && run.id && run.started_at) {\n  const age = Date.now() - new Date(run.started_at).getTime();\n  if (age >= 0 && age <= RECENCY_MS) matched = { id: run.id, started_at: run.started_at };\n}\nreturn [{ json: {\n  err,\n  agent: hasAgent ? { id: agent.id, slug: agent.slug, name: agent.name } : null,\n  matched_run: matched,\n  resolution: matched ? 'run_marked_failed' : (hasAgent ? 'no_trustworthy_running_run' : 'unmapped_workflow')\n} }];"
+      },
+      "id": "99-build-resolution",
+      "name": "Build Resolution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.matched_run ? $json.matched_run.id : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "99-run-matched?",
+      "name": "Run Matched?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Build Resolution').first().json.matched_run.id }}",
+        "method": "PATCH",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -51,39 +184,164 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "JSON.stringify({ status: 'failed', completed_at: $now.toISO(), error: $('Build Resolution').first().json.err.error_message.slice(0, 500) })"
       },
-      "id": "log-error",
+      "id": "99-mark-run-failed",
+      "name": "Mark Run Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        -120
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Build Resolution').first().json.agent.id + '&select=error_count' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "99-get-agent-error-count",
+      "name": "Get Agent Error Count",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -120
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Build Resolution').first().json.agent.id }}",
+        "method": "PATCH",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ error_count: (($('Get Agent Error Count').first().json && $('Get Agent Error Count').first().json.error_count) || 0) + 1 }) }}"
+      },
+      "id": "99-bump-agent-error-count",
+      "name": "Bump Agent Error Count",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        840,
+        -120
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Build Resolution').first().json;\nreturn [{ json: {\n  event_type: 'agent_run_failed',\n  severity: 'critical',\n  source: r.agent ? r.agent.slug : 'unmapped',\n  payload: {\n    workflow_name: r.err.workflow_name,\n    workflow_id: r.err.workflow_id,\n    execution_id: r.err.execution_id,\n    execution_url: r.err.execution_url,\n    error_message: r.err.error_message,\n    error_stack: r.err.error_stack,\n    occurred_at: r.err.occurred_at,\n    resolution: r.resolution,\n    matched_agent: r.agent ? r.agent.slug : null,\n    matched_run_id: r.matched_run ? r.matched_run.id : null\n  }\n} }];"
+      },
+      "id": "99-compose-event",
+      "name": "Compose Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/system_events' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "id": "99-log-system-event",
       "name": "Log System Event",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -40,
+        1320,
         0
-      ]
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "telegram-message",
+              "id": "tg-99",
               "name": "telegram_message",
-              "value": "={{ '🚨 GrowthOS workflow failure\\nWorkflow: ' + $('Normalize Error').item.json.source + '\\nError: ' + $('Normalize Error').item.json.payload.error_message + '\\nExecution: ' + ($('Normalize Error').item.json.payload.execution_url || 'n/a') }}",
+              "value": "={{ '🚨 GrowthOS agent failure\\nAgent: ' + ($('Build Resolution').first().json.agent ? $('Build Resolution').first().json.agent.slug : 'unmapped: ' + $('Build Resolution').first().json.err.workflow_name) + '\\nAction: ' + $('Build Resolution').first().json.resolution + '\\nError: ' + $('Build Resolution').first().json.err.error_message.slice(0, 300) + '\\nExecution: ' + ($('Build Resolution').first().json.err.execution_url || 'n/a') }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "prepare-alert",
+      "id": "99-prepare-alert",
       "name": "Prepare Telegram Alert",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        200,
+        1560,
         0
       ]
     },
@@ -93,15 +351,16 @@
         "text": "={{ $json.telegram_message }}",
         "additionalFields": {}
       },
-      "id": "send-alert",
+      "id": "99-send-alert",
       "name": "Send Telegram Alert",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        440,
+        1800,
         0
       ],
-      "webhookId": "growthos-error-alert"
+      "webhookId": "growthos-99-alert",
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -117,6 +376,119 @@
       ]
     },
     "Normalize Error": {
+      "main": [
+        [
+          {
+            "node": "Resolve Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Agent": {
+      "main": [
+        [
+          {
+            "node": "Agent Resolved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Resolved?": {
+      "main": [
+        [
+          {
+            "node": "Find Running Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Running Run": {
+      "main": [
+        [
+          {
+            "node": "Build Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Resolution": {
+      "main": [
+        [
+          {
+            "node": "Run Matched?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Matched?": {
+      "main": [
+        [
+          {
+            "node": "Mark Run Failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Run Failed": {
+      "main": [
+        [
+          {
+            "node": "Get Agent Error Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Agent Error Count": {
+      "main": [
+        [
+          {
+            "node": "Bump Agent Error Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bump Agent Error Count": {
+      "main": [
+        [
+          {
+            "node": "Compose Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Event": {
       "main": [
         [
           {
@@ -156,7 +528,7 @@
     "timezone": "America/New_York"
   },
   "active": false,
-  "versionId": "00000000-0000-4000-8000-000000000099",
+  "versionId": "99000000-0000-4000-8000-000000000002",
   "meta": {
     "templateCredsSetupCompleted": false
   },

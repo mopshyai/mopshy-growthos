@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "notes": "Machine-readable mapping from n8n workflow names (as imported) to GrowthOS agent slugs. The error handler (99) resolves the failing workflow through the agents.n8n_workflow_name column in Supabase, which is populated from this map after n8n import. Infrastructure workflows have no agent slug.",
+  "workflows": {
+    "00 - GrowthOS Orchestrator": null,
+    "01 - SEO Intelligence v3": "seo-intelligence",
+    "02 - Autonomous Content Opportunity Agent": "search-opportunity",
+    "03 - Autonomous Content Writer + QA": "content-production",
+    "04 - Guarded GitHub Blog Publisher": "content-production",
+    "05 - Content Performance Agent": "content-performance",
+    "06 - Content Research Agent": "content-research",
+    "07 - Internal Linking Agent": "internal-linking",
+    "08 - Technical SEO Agent": "technical-seo",
+    "09 - Citation Engine Agent": "citation-engine",
+    "10 - Backlink Intelligence Agent": "backlink-intelligence",
+    "11 - Founder Content Agent": "founder-content",
+    "12 - Social Distribution Agent": "social-distribution",
+    "13 - CRO Intelligence Agent": "cro-intelligence",
+    "14 - Competitor Intelligence Agent": "competitor-intelligence",
+    "15 - Reputation Intelligence Agent": "reputation-intelligence",
+    "16 - Lead Intent Agent": "lead-intent",
+    "17 - Growth Director Agent": "growth-director",
+    "98 - Stale Run Watchdog": null,
+    "99 - GrowthOS Error Handler": null
+  }
+}
