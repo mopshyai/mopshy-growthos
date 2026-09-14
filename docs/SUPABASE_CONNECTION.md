@@ -9,24 +9,26 @@ This repository is scoped to the hosted Supabase project:
 
 ## AI coding/MCP connection
 
-The repository contains a project-scoped `.mcp.json` for Supabase MCP:
+The repository contains a project-scoped, **read-only** `.mcp.json` for the production Supabase project:
 
 ```json
 {
   "mcpServers": {
     "supabase": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=ftchgfwahjeqbyilsmjn&features=database%2Cdocs%2Cdebugging%2Cdevelopment"
+      "url": "https://mcp.supabase.com/mcp?project_ref=ftchgfwahjeqbyilsmjn&read_only=true&features=database%2Cdocs%2Cdebugging%2Cdevelopment"
     }
   }
 }
 ```
 
-This file contains no access token or database secret. The developer must authenticate the MCP connection through Supabase OAuth in the coding client. Keep manual approval enabled for write operations against production.
+This file contains no access token or database secret. Authenticate through Supabase OAuth in the coding client. Production MCP stays read-only so an AI coding session can inspect/debug the live project without ambient write access.
+
+Use the linked Supabase CLI or an explicitly approved migration action for deliberate production writes.
 
 ## Supabase CLI link
 
-From the repository root, use the current Supabase CLI and inspect its help before running commands:
+From the repository root:
 
 ```bash
 npx supabase --help
@@ -34,15 +36,15 @@ npx supabase login
 npx supabase link --project-ref ftchgfwahjeqbyilsmjn
 ```
 
-The link is local developer state under `supabase/.temp/` and must not be committed. That directory is already ignored by `.gitignore`.
+The repository has been successfully linked to `mopshy-growthos`. Local link state under `supabase/.temp/` must not be committed; that directory is ignored by `.gitignore`.
 
-Verify the linked project before any write:
+Verify the target before any write:
 
 ```bash
 npx supabase projects list
 ```
 
-Before applying migrations to production, preview them:
+When deploying future repo migrations through the CLI, preview first:
 
 ```bash
 npx supabase db push --dry-run
@@ -52,7 +54,7 @@ Do **not** run `supabase db reset --linked` against this production project.
 
 ## Production credentials
 
-Do not commit credentials. Runtime secrets belong in the execution environment (n8n Cloud or another server-side secret store), not GitHub.
+Do not commit credentials. Runtime secrets belong in n8n Cloud or another server-side secret store, never GitHub or browser code.
 
 GrowthOS currently expects server-side Supabase access through:
 
@@ -61,21 +63,40 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 ```
 
-The service-role credential must never be exposed to browser/client code. Supabase is moving new projects toward modern secret keys; any credential migration should be done separately and verified with the deployed n8n version before replacing the existing server-side variable contract.
+The service-role credential bypasses RLS and must remain server-only.
 
-## Current production-schema warning
+## Production hardening status
 
-Do not apply the draft production-hardening migration until PR #7's schema-collision review is resolved.
+The `production_hardening` migration was applied to the hosted project on 2026-09-14 and recorded in the Supabase migration history as version `20260914035014`.
 
-The live project currently contains both GrowthOS data and Mopshy Studio/media tables in `public`.
+Verified outcomes:
 
-In particular:
+- `public.workflow_runtime_map` exists with n8n workflow IDs stored as opaque `text`.
+- `public.legacy_citations` was safely renamed to `public.growth_citations`.
+- Studio/media `public.citations` was not renamed or modified; it still has the Studio shape (`claim_id`, `title`, `publisher`, `url`, etc.).
+- RLS is enabled on `workflow_runtime_map` and `growth_citations`.
+- direct table privileges for `anon` and `authenticated` are revoked on both internal GrowthOS tables.
+- `service_role` has server-side Data API access for n8n.
+- idempotency/watchdog/publisher indexes from the hardening migration exist.
+- preflight found zero duplicate groups on all new unique-index targets.
 
-- `public.citations` belongs to the Studio/media schema (`claim_id`, `title`, `publisher`, `url`, etc.).
-- the GrowthOS directory citation table currently exists as `public.legacy_citations` (`directory_id`, `status`, `profile_url`, etc.).
+The runtime map is pre-seeded with all 20 workflow names/slugs/roles, but every `workflow_id` is still `NULL` and every `dispatch_enabled` value is `false`. This is intentional: real n8n Cloud workflow IDs must be written only after the Cloud import, and native n8n schedules remain the execution source of truth.
 
-GrowthOS must not mutate the Studio `citations` table. The final migration/workflow 09 must move GrowthOS citation tracking to a collision-safe table such as `public.growth_citations`.
+## Live schema boundary
 
-## Current connection status
+The GrowthOS project still contains some Mopshy Studio/media-era tables in `public`. Do not broadly modify or delete them during GrowthOS activation.
 
-The hosted project is reachable and healthy. Read-only live checks and Supabase advisors can be run now. Production DDL should wait until the PR #7 blockers are fixed and the migration has been revalidated against the live schema.
+The key citation collision is now resolved safely:
+
+- `public.citations` = Studio/media citations — leave untouched.
+- `public.growth_citations` = GrowthOS directory/citation automation state.
+
+Workflow 09 must use only `growth_citations`.
+
+## Advisor status
+
+After the hardening migration, Supabase security/performance advisors were rerun.
+
+The two new internal tables appear in the informational `rls_enabled_no_policy` lint because they intentionally have RLS enabled with no browser policies; `anon`/`authenticated` grants are revoked and n8n uses the server-only service role.
+
+Pre-existing warnings remain around mixed Studio-era functions/policies (mutable `search_path`, publicly executable `SECURITY DEFINER` functions, and some performance/index notices). Do not change those blindly as part of GrowthOS activation; resolve them only after their Studio dependencies are understood.
