@@ -1,6 +1,6 @@
 -- Production hardening: runtime workflow mapping, citation-table reconciliation,
 -- idempotency guarantees, watchdog support.
--- Additive and rerunnable. Never applied to production yet.
+-- Additive and rerunnable.
 
 -- ============================================================================
 -- 1. Runtime mapping: many n8n workflows -> one GrowthOS agent.
@@ -23,6 +23,13 @@ create table if not exists public.workflow_runtime_map (
 
 create index if not exists workflow_runtime_map_agent_idx
   on public.workflow_runtime_map (agent_slug);
+
+-- This table is an internal GrowthOS control-plane table. n8n reaches it over
+-- PostgREST using the server-only service role. Browser roles must not have
+-- direct table privileges. RLS remains enabled as defense in depth.
+alter table public.workflow_runtime_map enable row level security;
+revoke all on table public.workflow_runtime_map from anon, authenticated;
+grant select, insert, update, delete on table public.workflow_runtime_map to service_role;
 
 -- ============================================================================
 -- 2. Citation table reconciliation.
@@ -68,6 +75,12 @@ create table if not exists public.growth_citations (
   consistency_score numeric(5,2),
   profile_data jsonb default '{}'::jsonb
 );
+
+-- GrowthOS citations are internal automation state. Preserve service-role REST
+-- access for n8n while explicitly blocking anon/authenticated table access.
+alter table public.growth_citations enable row level security;
+revoke all on table public.growth_citations from anon, authenticated;
+grant select, insert, update, delete on table public.growth_citations to service_role;
 
 -- ============================================================================
 -- 3. Idempotency guarantees for fleet writers. The system is pre-launch, so
