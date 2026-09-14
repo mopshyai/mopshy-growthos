@@ -158,7 +158,8 @@
         -280,
         -80
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -224,7 +225,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, tools: [{ type: 'web_search' }], input: `You are Mopshy's research analyst. Build an evidence-backed research packet for this content opportunity. OPPORTUNITY: ${JSON.stringify($json)}. Research CURRENT web sources: verify the topic is still accurate, gather at least 3 credible sources (at least 1 primary for changing claims), extract key facts with the exact source that supports each, identify what is genuinely new, and define the practical Mopshy point of view (implementation architecture, decision framework, teardown, or trade-off analysis). Never invent facts, statistics, pricing, or quotes. If evidence is too thin or the topic is stale, reject it. Return ONLY JSON: {verdict:'approve'|'reject', confidence:number, reason:string, research_packet:{summary, key_facts:[{claim, source_url}], sources:[{url, publisher, title, primary:boolean}], freshness_note, pov_angle, outline:[{heading, notes}]}}` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's research analyst. Build an evidence-backed research packet for this content opportunity. OPPORTUNITY: ${JSON.stringify($json)}. Research CURRENT web sources: verify the topic is still accurate, gather at least 3 credible sources (at least 1 primary for changing claims), extract key facts with the exact source that supports each, identify what is genuinely new, and define the practical Mopshy point of view (implementation architecture, decision framework, teardown, or trade-off analysis). Never invent facts, statistics, pricing, or quotes. If evidence is too thin or the topic is stale, reject it. Return ONLY JSON: {verdict:'approve'|'reject', confidence:number, reason:string, research_packet:{summary, key_facts:[{claim, source_url}], sources:[{url, publisher, title, primary:boolean}], freshness_note, pov_angle, outline:[{heading, notes}]}}` }) }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "options": {
@@ -430,6 +431,60 @@
         3880,
         -80
       ]
+    },
+    {
+      "parameters": {},
+      "id": "06-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "06-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "06-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
+      ]
     }
   ],
   "connections": {
@@ -459,7 +514,7 @@
       "main": [
         [
           {
-            "node": "Get Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -615,6 +670,35 @@
         [
           {
             "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }

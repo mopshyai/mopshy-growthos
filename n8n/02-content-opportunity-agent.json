@@ -91,7 +91,8 @@
       "position": [
         -500,
         0
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -257,7 +258,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: 'search-opportunity', trigger: 'scheduled' } })"
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: 'search-opportunity', trigger: 'scheduled' } }) }}"
       },
       "name": "Create Agent Run",
       "type": "n8n-nodes-base.httpRequest",
@@ -349,7 +350,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 })"
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
       },
       "name": "Complete Agent Run",
       "type": "n8n-nodes-base.httpRequest",
@@ -387,7 +388,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 })"
+        "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
       },
       "name": "Update Agent Last Run",
       "type": "n8n-nodes-base.httpRequest",
@@ -395,6 +396,60 @@
       "position": [
         3680,
         -80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "02-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "02-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "02-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
       ]
     }
   ],
@@ -469,7 +524,7 @@
       "main": [
         [
           {
-            "node": "Get Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -565,6 +620,35 @@
         [
           {
             "node": "Update Agent Last Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }

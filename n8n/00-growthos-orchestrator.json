@@ -52,6 +52,37 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED || 'true').toString().toLowerCase() }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "global-pause-gate",
+      "name": "GrowthOS Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?status=eq.active&select=id,name,slug,autonomy,schedule,last_run_at,next_run_at' }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -73,50 +104,178 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -300,
+        -80,
         0
       ]
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst rows = items.flatMap(item => Array.isArray(item.json) ? item.json : [item.json]);\n\nfunction due(agent) {\n  if (agent.next_run_at) return new Date(agent.next_run_at) <= now;\n  if (!agent.last_run_at) return true;\n  const last = new Date(agent.last_run_at);\n  const ageMinutes = (now - last) / 60000;\n  switch (agent.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\n\nreturn rows.filter(due).map(agent => ({ json: { ...agent, dispatch_requested_at: now.toISOString() } }));"
+        "jsCode": "const now = new Date();\nconst due = items.flatMap(i => Array.isArray(i.json) ? i.json : [i.json]).filter(a => a && a.slug);\nconst mapRows = $('Get Dispatch Map').all().map(i => i.json).filter(m => m && m.workflow_id && m.agent_slug);\n\nfunction isDue(a) {\n  if (a.next_run_at) return new Date(a.next_run_at) <= now;\n  if (!a.last_run_at) return true;\n  const ageMinutes = (now - new Date(a.last_run_at)) / 60000;\n  switch (a.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\nconst dueAgents = due.filter(isDue);\nconst wired = [];\nfor (const a of dueAgents) {\n  for (const m of mapRows.filter(m => m.agent_slug === a.slug)) {\n    wired.push({ agent_slug: a.slug, agent_id: a.id, n8n_workflow_id: m.workflow_id, workflow_name: m.workflow_name,\n      orchestrator_run_id: $('Create Run Context').first().json.orchestrator_run_id, dispatch_requested_at: now.toISOString() });\n  }\n}\nconst wiredSlugs = new Set(wired.map(w => w.agent_slug));\nconst unwired = [...new Set(dueAgents.filter(a => !wiredSlugs.has(a.slug)).map(a => a.slug))];\nreturn [{ json: { wired, unwired, dispatch_count: wired.length, any: wired.length + unwired.length } }];"
       },
       "id": "filter-due-agents",
       "name": "Filter Due Agents",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -60,
+        160,
         0
       ]
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
+        "jsCode": "// Joins due agents with dispatch-enabled rows from workflow_runtime_map.\n// Falls back to the precomputed summary when wired directly.\nreturn [{ json: $json.wired !== undefined ? $json : { wired: [], unwired: [], dispatch_count: 0, any: 0 } }];"
+      },
+      "id": "00-summarize",
+      "name": "Summarize Dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
             {
-              "id": "dispatch-status",
-              "name": "dispatch_status",
-              "value": "ready",
-              "type": "string"
+              "leftValue": "={{ $json.any }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "00-has-work",
+      "name": "Has Dispatch Work?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $json.wired.map(a => ({ json: a }));"
+      },
+      "id": "00-explode",
+      "name": "Explode Wired Agents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $json.n8n_workflow_id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "00-dispatch",
+      "name": "Dispatch To Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1140,
+        -120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/system_events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
             },
             {
-              "id": "dispatch-note",
-              "name": "dispatch_note",
-              "value": "Connect this item to an Execute Workflow node mapped by agent slug after the individual agent workflows are imported.",
-              "type": "string"
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ event_type: 'orchestrator_dispatch', severity: 'info', source: 'orchestrator', payload: { dispatch_count: $json.dispatch_count, dispatched: $json.wired.map(a => a.agent_slug), unwired_due_agents: $json.unwired, orchestrator_run_id: $json.wired[0] ? $json.wired[0].orchestrator_run_id : null } }) }}"
+      },
+      "id": "00-log",
+      "name": "Log Orchestrator Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/workflow_runtime_map?dispatch_enabled=eq.true&workflow_id=not.is.null&select=workflow_id,workflow_name,agent_slug' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
             }
           ]
         },
         "options": {}
       },
-      "id": "dispatch-contract",
-      "name": "Dispatch Contract",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "id": "00-get-map",
+      "name": "Get Dispatch Map",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        180,
-        0
+        -540,
+        200
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {},
+      "id": "00-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        40
       ]
     }
   ],
@@ -136,11 +295,28 @@
       "main": [
         [
           {
-            "node": "Get Active Agents",
+            "node": "GrowthOS Enabled?",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "GrowthOS Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Get Active Agents",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Dispatch Map",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Get Active Agents": {
@@ -158,7 +334,57 @@
       "main": [
         [
           {
-            "node": "Dispatch Contract",
+            "node": "Summarize Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Has Dispatch Work?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Dispatch Work?": {
+      "main": [
+        [
+          {
+            "node": "Explode Wired Agents",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Orchestrator Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Explode Wired Agents": {
+      "main": [
+        [
+          {
+            "node": "Dispatch To Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create Run Context",
             "type": "main",
             "index": 0
           }

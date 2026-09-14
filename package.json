@@ -1,0 +1,8 @@
+{
+  "name": "mopshy-growthos",
+  "private": true,
+  "description": "Mopshy GrowthOS — n8n workflow fleet for mopshy.com growth operations",
+  "scripts": {
+    "validate:growthos": "node scripts/validate-workflows.mjs"
+  }
+}

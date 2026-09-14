@@ -12,23 +12,23 @@
           ]
         }
       },
-      "id": "d16b424e-cf4b-5444-af63-a378669c5ade",
+      "id": "17-schedule",
       "name": "Daily 7:30 AM ET",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -1480,
+        -1520,
         -200
       ]
     },
     {
       "parameters": {},
-      "id": "d7d0efff-58cc-5de1-8bd9-336d24a21b74",
+      "id": "17-manual",
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -1480,
+        -1520,
         40
       ]
     },
@@ -37,7 +37,7 @@
         "assignments": {
           "assignments": [
             {
-              "id": "9180fe81-9787-5ee2-bff2-5c9427344f96",
+              "id": "17-slug",
               "name": "agent_slug",
               "value": "growth-director",
               "type": "string"
@@ -46,12 +46,12 @@
         },
         "options": {}
       },
-      "id": "d0477eef-c931-5ada-ba53-b5bfd0377747",
+      "id": "17-config",
       "name": "Run Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -1240,
+        -1280,
         -80
       ]
     },
@@ -72,32 +72,33 @@
           ]
         }
       },
-      "id": "6d0f1b01-c7f0-5079-a460-ca0080f4d4e2",
+      "id": "17-get-agent",
       "name": "Get Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -1000,
+        -1040,
         -80
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "jsCode": "if (!items.length || !items[0].json.id) { throw new Error('Agent growth-director was not found in Supabase. Confirm scripts/seed_agents.sql was applied.'); }\nreturn items;"
       },
-      "id": "4f2c4164-0857-5096-ba6d-379926ed9888",
+      "id": "17-validate",
       "name": "Validate Agent",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -760,
+        -800,
         -80
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
         "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -122,20 +123,20 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, trigger: 'scheduled' } }) }}"
+        "body": "={{ JSON.stringify({ agent_id: $('Validate Agent').first().json.id, status: 'running', input: { agent_slug: 'growth-director', mode: 'daily_brief' } }) }}"
       },
-      "id": "bef6aaa7-9fe6-54f4-b368-7d152e05f24e",
+      "id": "17-create-run",
       "name": "Create Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -520,
+        -560,
         -80
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?select=name,slug,status,autonomy,schedule,last_run_at,success_rate,error_count' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?select=id,slug,status,autonomy,schedule,last_run_at,success_rate,error_count' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -150,19 +151,20 @@
           ]
         }
       },
-      "id": "3d8b3213-cb1a-53c3-801c-b7d564b17556",
+      "id": "17-gather-agent-health",
       "name": "Gather Agent Health",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -280,
+        -320,
         -80
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?status=in.(queued,awaiting_approval)&select=task_type,title,priority,created_at&limit=300' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks?status=in.(queued,awaiting_approval)&select=id,task_type,title,description,priority,confidence,expected_impact,requires_approval,status,payload,created_at,created_by_agent&order=created_at.desc&limit=300' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -177,19 +179,20 @@
           ]
         }
       },
-      "id": "f1918654-e799-5365-b471-f309248142ba",
+      "id": "17-gather-open-tasks",
       "name": "Gather Open Tasks",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -40,
+        -80,
         -80
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?started_at=gte.' + $now.minus({ hours: 24 }).toISO() + '&select=status,tasks_created,error' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?started_at=gte.' + $now.minus({ hours: 24 }).toISO() + '&select=status,tasks_created,error,started_at,completed_at,agent_id' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -204,32 +207,34 @@
           ]
         }
       },
-      "id": "55f9e6a5-eabf-5141-873b-2c553555b04f",
+      "id": "17-runs",
       "name": "Gather Recent Runs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        200,
+        160,
         -80
-      ]
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
-        "jsCode": "const agents = $('Gather Agent Health').all().map(i => i.json).filter(a => a && a.slug);\nconst tasks = $('Gather Open Tasks').all().map(i => i.json).filter(t => t && t.task_type);\nconst runs = items.map(i => i.json).filter(r => r && r.status);\nconst byPrio = { P0: 0, P1: 0, P2: 0, P3: 0 };\ntasks.forEach(t => { byPrio[t.priority] = (byPrio[t.priority] || 0) + 1; });\nconst failedRuns = runs.filter(r => r.status === 'failed' || r.error).length;\nconst completedRuns = runs.filter(r => r.status === 'completed').length;\nconst tasksCreated = runs.reduce((s, r) => s + (r.tasks_created || 0), 0);\nconst hourBudget = (a) => a.schedule === 'hourly' ? 6 : a.schedule === 'daily' ? 36 : 180;\nconst stale = agents.filter(a => a.status === 'active' && a.schedule && a.schedule !== 'on-demand' && (!a.last_run_at || (Date.now() - new Date(a.last_run_at)) / 3600000 > hourBudget(a)));\nconst p1 = tasks.filter(t => t.priority === 'P1').slice(0, 5).map(t => t.title);\nconst lines = [];\nlines.push('GrowthOS daily brief — ' + new Date().toISOString().slice(0, 10));\nlines.push('Open tasks: ' + tasks.length + ' (P0: ' + byPrio.P0 + ', P1: ' + byPrio.P1 + ', P2: ' + byPrio.P2 + ', P3: ' + byPrio.P3 + ')');\nlines.push('Agent runs last 24h: ' + completedRuns + ' completed, ' + failedRuns + ' failed, ' + tasksCreated + ' tasks created');\nif (p1.length) lines.push('Top priorities: ' + p1.join(' | '));\nif (stale.length) lines.push('Stale agents (no run within schedule budget): ' + stale.map(a => a.slug).join(', '));\nconst brief = { brief_date: new Date().toISOString().slice(0, 10), executive_summary: lines.join('\\n'), priorities: p1, metrics: { open_tasks: tasks.length, by_priority: byPrio, runs_24h: { completed: completedRuns, failed: failedRuns }, tasks_created_24h: tasksCreated, stale_agents: stale.map(a => a.slug) } };\nreturn [{ json: { brief, telegram_message: lines.join('\\n'), summary: { open_tasks: tasks.length, p1_open: byPrio.P1, runs_24h_completed: completedRuns, runs_24h_failed: failedRuns, stale_agents: stale.length }, tasks_created: 0 } }];"
+        "jsCode": "// ============================================================================\n// GROWTH DIRECTOR — DETERMINISTIC PRIORITIZATION (no LLM, no fabricated data)\n// ============================================================================\n// Every open task receives a decision score assembled ONLY from data that\n// exists on the task row. Missing optional data contributes a documented\n// neutral weight — never an invented value.\n//\n// score =\n//   priority_base      P0=40  P1=30  P2=20  P3=10            (always present)\n//   + confidence       round(confidence * 15); missing -> 7.5 (neutral midpoint)\n//   + impact_boost     keyword scan of expected_impact / payload.expected_impact:\n//                        revenue, pipeline, booked, lead, conversion, clicks -> +15\n//                        ranking, traffic, seo, citation -> +8\n//                        otherwise 0\n//   + intent_boost     +10 when the task itself signals buying intent\n//                        (task_type 'lead_intent_hot' or payload.intent_score)\n//   + freshness_boost  created <24h -> +10, <72h -> +5, older -> 0\n//   + approval_boost   +5 when requires_approval (a human decision is the\n//                      bottleneck; surfacing it early unblocks revenue work)\n//   + effort_adjust    payload.effort: 'small'/'low' -> +5, 'large'/'high' -> -10,\n//                      missing -> 0\n//\n// Ties break by created_at (newest first), then by title for determinism.\n// ============================================================================\nconst tasks = $('Gather Open Tasks').all().map(i => i.json).filter(t => t && t.id);\nconst agents = $('Gather Agent Health').all().map(i => i.json).filter(a => a && a.slug);\nconst runs = items.map(i => i.json).filter(r => r && r.status);\n\nconst PRIORITY_BASE = { P0: 40, P1: 30, P2: 20, P3: 10 };\nconst HIGH_IMPACT = /(revenue|pipeline|booked|lead|conversion|clicks)/i;\nconst MED_IMPACT = /(ranking|traffic|seo|citation)/i;\n\nfunction domainOf(taskType) {\n  if (/^seo_/.test(taskType)) return 'SEO Intelligence';\n  if (/^(search_opportunity|content_research)/.test(taskType)) return 'Search Opportunity / Research';\n  if (/^internal_/.test(taskType)) return 'Internal Linking';\n  if (/^technical_seo/.test(taskType)) return 'Technical SEO';\n  if (/^citation/.test(taskType)) return 'Citation Engine';\n  if (/^backlink/.test(taskType)) return 'Backlink Intelligence';\n  if (/^review_founder/.test(taskType)) return 'Founder Content';\n  if (/^review_social/.test(taskType)) return 'Social Distribution';\n  if (/^cro_/.test(taskType)) return 'CRO Intelligence';\n  if (/^competitor/.test(taskType)) return 'Competitor Intelligence';\n  if (/^reputation/.test(taskType)) return 'Reputation Intelligence';\n  if (/^lead_intent/.test(taskType)) return 'Lead Intent';\n  if (/^publishing_stuck/.test(taskType)) return 'Publisher';\n  return 'GrowthOS';\n}\n\nfunction factorsOf(t, parts) {\n  const f = [];\n  if (parts.priority_base >= 30) f.push(parts.priority_base >= 40 ? 'critical priority' : 'high priority');\n  if (parts.impact_boost >= 15) f.push('revenue-linked impact');\n  else if (parts.impact_boost > 0) f.push('growth impact');\n  if (parts.intent_boost > 0) f.push('explicit buying intent');\n  if (parts.freshness_boost > 0) f.push('fresh finding');\n  if (t.requires_approval) f.push('waiting on your approval');\n  return f;\n}\n\nconst scored = tasks.map(t => {\n  const payload = (t.payload && typeof t.payload === 'object') ? t.payload : {};\n  const impactText = [t.expected_impact, payload.expected_impact].filter(Boolean).join(' ');\n  const priority_base = PRIORITY_BASE[t.priority] !== undefined ? PRIORITY_BASE[t.priority] : 10;\n  const confidence = (typeof t.confidence === 'number' && t.confidence >= 0 && t.confidence <= 1) ? t.confidence : null;\n  const confidencePts = confidence === null ? 7.5 : Math.round(confidence * 15 * 10) / 10;\n  const impact_boost = HIGH_IMPACT.test(impactText) ? 15 : (MED_IMPACT.test(impactText) ? 8 : 0);\n  const intent_boost = (t.task_type === 'lead_intent_hot' || payload.intent_score !== undefined) ? 10 : 0;\n  const ageH = (Date.now() - new Date(t.created_at).getTime()) / 3600000;\n  const freshness_boost = ageH < 24 ? 10 : (ageH < 72 ? 5 : 0);\n  const approval_boost = t.requires_approval ? 5 : 0;\n  const effort = String(payload.effort || '').toLowerCase();\n  const effort_adjust = effort === 'small' || effort === 'low' ? 5 : (effort === 'large' || effort === 'high' ? -10 : 0);\n  const score = priority_base + confidencePts + impact_boost + intent_boost + freshness_boost + approval_boost + effort_adjust;\n  const parts = { priority_base, confidencePts, impact_boost, intent_boost, freshness_boost, approval_boost, effort_adjust };\n  return {\n    id: t.id, task_type: t.task_type, title: t.title, priority: t.priority,\n    requires_approval: !!t.requires_approval, domain: domainOf(t.task_type || ''),\n    action: (t.description || t.title || '').slice(0, 180),\n    score: Math.round(score * 10) / 10, parts,\n    why: factorsOf(t, parts).join(', ') || 'routine finding',\n    created_at: t.created_at\n  };\n});\n\nscored.sort((a, b) => b.score - a.score || new Date(b.created_at) - new Date(a.created_at) || (a.title < b.title ? -1 : 1));\nconst top = scored.slice(0, 5);\n\nconst byPrio = { P0: 0, P1: 0, P2: 0, P3: 0 };\ntasks.forEach(t => { byPrio[t.priority] = (byPrio[t.priority] || 0) + 1; });\nconst failedRuns = runs.filter(r => r.status === 'failed' || r.error).length;\nconst completedRuns = runs.filter(r => r.status === 'completed').length;\nconst tasksCreated = runs.reduce((s, r) => s + (r.tasks_created || 0), 0);\nconst hourBudget = (a) => a.schedule === 'hourly' ? 6 : a.schedule === 'daily' ? 36 : 180;\nconst stale = agents.filter(a => a.status === 'active' && a.schedule && a.schedule !== 'on-demand' && (!a.last_run_at || (Date.now() - new Date(a.last_run_at).getTime()) / 3600000 > hourBudget(a)));\n\nconst lines = [];\nlines.push('GrowthOS daily brief — ' + new Date().toISOString().slice(0, 10));\nlines.push('');\nlines.push('TOP ACTIONS TODAY');\ntop.forEach((t, i) => {\n  lines.push((i + 1) + '. [' + t.priority + (t.requires_approval ? '·approval' : '') + '] ' + t.title.slice(0, 90));\n  lines.push('   Why: ' + t.why + ' | Found by: ' + t.domain + ' | Score ' + t.score);\n});\nif (!top.length) lines.push('No open tasks — nothing needs a decision.');\nlines.push('');\nlines.push('SYSTEM HEALTH');\nlines.push('Runs last 24h: ' + completedRuns + ' completed, ' + failedRuns + ' failed | tasks created: ' + tasksCreated);\nlines.push('Open tasks: ' + tasks.length + ' (P0: ' + byPrio.P0 + ', P1: ' + byPrio.P1 + ', P2: ' + byPrio.P2 + ', P3: ' + byPrio.P3 + ')' + (stale.length ? ' | UNHEALTHY/STALE: ' + stale.map(a => a.slug).join(', ') : ' | all agents on schedule'));\n\nconst brief = {\n  brief_date: new Date().toISOString().slice(0, 10),\n  executive_summary: lines.join('\\n'),\n  priorities: top.map(t => ({ title: t.title, domain: t.domain, score: t.score, requires_approval: t.requires_approval, why: t.why, action: t.action })),\n  metrics: { open_tasks: tasks.length, by_priority: byPrio, runs_24h: { completed: completedRuns, failed: failedRuns }, tasks_created_24h: tasksCreated, stale_agents: stale.map(a => a.slug), scored_tasks: scored.length }\n};\nreturn [{ json: { brief, telegram_message: lines.join('\\n'), summary: { open_tasks: tasks.length, top_recommendations: top.length, runs_24h_completed: completedRuns, runs_24h_failed: failedRuns, stale_agents: stale.length }, tasks_created: 0 } }];"
       },
-      "id": "8e00cded-477e-5032-9f46-398527a8af3c",
-      "name": "Build Run Summary",
+      "id": "17-direct",
+      "name": "Prioritize And Compose",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        440,
+        400,
         -80
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/daily_briefs?on_conflict=brief_date' }}",
         "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/daily_briefs?on_conflict=brief_date' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -254,37 +259,38 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify([$('Build Run Summary').first().json.brief]) }}"
+        "body": "={{ JSON.stringify([$('Prioritize And Compose').first().json.brief]) }}"
       },
-      "id": "4ce1567e-cc6b-5ad3-9779-8bfd99d949d0",
+      "id": "17-brief",
       "name": "Upsert Daily Brief",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        680,
+        640,
         -240
       ]
     },
     {
       "parameters": {
         "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
-        "text": "={{ $('Build Run Summary').first().json.telegram_message }}",
+        "text": "={{ $('Prioritize And Compose').first().json.telegram_message }}",
         "additionalFields": {}
       },
-      "id": "68a9d785-d06e-53a4-8c3c-541429452bc1",
+      "id": "17-telegram",
       "name": "Send Telegram Brief",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        680,
+        640,
         -40
       ],
-      "webhookId": "eaee5a0c-70f8-582c-9d3b-552125695cf7"
+      "webhookId": "growthos-17-brief",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
         "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Agent Run').first().json.id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -309,21 +315,21 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Build Run Summary').first().json.summary }, tasks_created: $('Build Run Summary').first().json.tasks_created || 0 }) }}"
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Prioritize And Compose').first().json.summary }, tasks_created: 0 }) }}"
       },
-      "id": "2b64a2cc-5db6-5820-93f1-07d10d918578",
+      "id": "17-complete",
       "name": "Complete Agent Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3400,
+        880,
         -80
       ]
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
         "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Validate Agent').first().json.id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -350,12 +356,12 @@
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}"
       },
-      "id": "c86b0692-0621-5de7-8bdf-5437adf6b713",
+      "id": "17-update",
       "name": "Update Agent Last Run",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3640,
+        1120,
         -80
       ]
     },
@@ -364,34 +370,82 @@
         "assignments": {
           "assignments": [
             {
-              "id": "5f585ea1-7d52-5dc0-ab69-b4fbe783fbb9",
+              "id": "17-result",
               "name": "result",
-              "value": "17 - Growth Director Agent run complete",
+              "value": "Growth Director daily brief complete",
               "type": "string"
             },
             {
-              "id": "cb29460d-9161-5c06-b353-cf7183a6f359",
+              "id": "17-summary",
               "name": "summary",
-              "value": "={{ JSON.stringify($('Build Run Summary').first().json.summary) }}",
-              "type": "string"
-            },
-            {
-              "id": "6dc38008-9c51-5ec2-b33c-061447403182",
-              "name": "agent_run_id",
-              "value": "={{ $('Create Agent Run').first().json.id }}",
+              "value": "={{ JSON.stringify($('Prioritize And Compose').first().json.summary) }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "29ff1b8d-3a0c-5814-83eb-5a725535bc27",
+      "id": "17-return",
       "name": "Return Summary",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        3880,
+        1360,
         -80
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "17-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "17-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "17-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
       ]
     }
   ],
@@ -422,7 +476,7 @@
       "main": [
         [
           {
-            "node": "Get Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -488,14 +542,14 @@
       "main": [
         [
           {
-            "node": "Build Run Summary",
+            "node": "Prioritize And Compose",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build Run Summary": {
+    "Prioritize And Compose": {
       "main": [
         [
           {
@@ -507,7 +561,24 @@
             "node": "Send Telegram Brief",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ]
+    },
+    "Upsert Daily Brief": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Brief": {
+      "main": [
+        [
           {
             "node": "Complete Agent Run",
             "type": "main",
@@ -537,6 +608,35 @@
           }
         ]
       ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
@@ -545,7 +645,7 @@
     "timezone": "America/New_York"
   },
   "active": false,
-  "versionId": "51bc7111-bf4e-5d8e-b84a-f495ef1ae0a6",
+  "versionId": "17000000-0000-4000-8000-000000000002",
   "meta": {
     "templateCredsSetupCompleted": false
   },
