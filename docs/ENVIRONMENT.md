@@ -16,7 +16,25 @@ GITHUB_REPO_MOPSHY_SITE=mopshyai/mopshy-ai-growth-engine
 OUTREACH_API_BASE_URL=
 OUTREACH_SHARED_SECRET=
 
+GROWTHOS_PAUSED=true
+GROWTHOS_RUN_TIMEOUT_MINUTES=45
+GROWTHOS_DRY_RUN=false
+
 Never commit live secrets.
+
+## Runtime controls
+
+- `GROWTHOS_PAUSED` — fail-closed at two layers: the orchestrator dispatch gate,
+  and a per-workflow `GrowthOS Paused?` gate in every agent that skips
+  production trigger executions when `true` or missing. Manual test executions
+  bypass the per-workflow gate intentionally (documented in the runbook).
+- `GROWTHOS_RUN_TIMEOUT_MINUTES` — the 98 stale-run watchdog marks agent runs
+  stuck in `running` longer than this as failed (default 45).
+- `GROWTHOS_DRY_RUN` — when `true`, consequential writers skip external
+  actions: the publisher rolls its reservation back and records a
+  `publish_dry_run` system event instead of opening a PR; the citation engine
+  skips inserts. Read-only intelligence agents are unaffected. Yellow actions
+  remain approval-gated regardless.
 
 ## Notes
 
