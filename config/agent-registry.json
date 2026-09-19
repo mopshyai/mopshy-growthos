@@ -4,17 +4,16 @@
   "notes": "Machine-readable implementation status of the GrowthOS agent fleet. status values: READY (workflow built and validated in repo), PARTIALLY_IMPLEMENTED (exists but incomplete), MISSING (registry entry only), STUB_ONLY, BROKEN. deployed=false means the workflow has not yet been imported/activated in the n8n Cloud MOPSHY GROWTHOS project. Schedules run in America/New_York.",
   "orchestrator": {
     "workflow_file": "n8n/00-growthos-orchestrator.json",
-    "status": "PARTIALLY_IMPLEMENTED",
+    "status": "READY",
     "deployed": false,
-    "gaps": [
-      "Dispatch implemented via Execute Workflow with runtime workflow IDs from agents.n8n_workflow_id (verified against n8n 1.107.4); until post-import wiring the gate stays fail-closed (GROWTHOS_PAUSED=true)"
-    ]
+    "gaps": [],
+    "notes": "Fail-closed via GROWTHOS_PAUSED. Runtime dispatch resolves through workflow_runtime_map (many workflows -> one agent). Orchestrator now persists its own agent_runs lifecycle with agent_id=null and completes the run after dispatch logging. dispatch_enabled defaults false because native n8n schedules are the production source of truth unless an agent is explicitly migrated to 00-dispatch."
   },
   "error_handler": {
     "workflow_file": "n8n/99-error-handler.json",
     "status": "READY",
     "deployed": false,
-    "notes": "Resolves failing agent via agents.n8n_workflow_name, marks only the newest running run failed within a 6h recency boundary, bumps agents.error_count, logs a structured system_event, sends Telegram. Fully failure-tolerant."
+    "notes": "Resolves failing workflows through workflow_runtime_map, marks only the newest running run failed within a 6h recency boundary, bumps agents.error_count, logs a structured system_event, and sends Telegram. Fully failure-tolerant."
   },
   "agents": [
     {
@@ -163,7 +162,7 @@
       "deployed": false,
       "data_sources": [
         "directories table",
-        "citations table"
+        "growth_citations table"
       ],
       "outputs": [
         "pending citations",
