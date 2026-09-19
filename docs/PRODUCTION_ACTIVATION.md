@@ -39,8 +39,8 @@ Attach credentials/environment:
 
 Before scheduled production runs:
 
-1. Wire the actual n8n workflow IDs into the `agents` table for workflow 00 dispatch.
-2. Verify workflow 00 dispatches only mapped due agents and remains fail-closed while paused.
+1. Populate the actual n8n workflow IDs in `workflow_runtime_map` after import. Keep `dispatch_enabled=false` unless an agent is explicitly migrated from its native schedule to workflow 00 dispatch.
+2. Verify workflow 00 records its own `agent_runs` lifecycle, dispatches only mapped due agents, and remains fail-closed while paused.
 3. Verify workflow 99 so a failure:
    - identifies the failing agent,
    - marks the corresponding `agent_runs` row failed,
@@ -121,7 +121,7 @@ The daily brief should surface a small actionable queue, not dump every alert.
 Only after the individual schedules are proven:
 
 1. test the 00 dispatcher manually,
-2. verify each slug resolves to exactly one imported workflow ID,
+2. verify every dispatch-enabled runtime-map row has exactly one imported workflow ID and a valid agent slug,
 3. verify paused mode stops all dispatch,
 4. verify unknown/unwired mappings fail safely,
 5. activate 00 last,
@@ -176,7 +176,7 @@ insert into workflow_runtime_map (workflow_name, workflow_id, agent_slug, workfl
 values ('01 - SEO Intelligence v3', '<n8n-workflow-id>', 'seo-intelligence', 'agent', false);
 ```
 
-Workflow IDs are opaque n8n strings (text). Repeat for all 19 workflows; the
+Workflow IDs are opaque n8n strings (text). Repeat for all 20 workflows; the
 99 error handler resolves any failure through this table by exact workflow
 name — never free-text matching.
 
