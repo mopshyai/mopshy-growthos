@@ -26,8 +26,8 @@
         "assignments": {
           "assignments": [
             {
-              "id": "run-id",
-              "name": "orchestrator_run_id",
+              "id": "correlation-id",
+              "name": "correlation_id",
               "value": "={{ $now.toISO() }}",
               "type": "string"
             },
@@ -110,7 +110,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst due = items.flatMap(i => Array.isArray(i.json) ? i.json : [i.json]).filter(a => a && a.slug);\nconst mapRows = $('Get Dispatch Map').all().map(i => i.json).filter(m => m && m.workflow_id && m.agent_slug);\n\nfunction isDue(a) {\n  if (a.next_run_at) return new Date(a.next_run_at) <= now;\n  if (!a.last_run_at) return true;\n  const ageMinutes = (now - new Date(a.last_run_at)) / 60000;\n  switch (a.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\nconst dueAgents = due.filter(isDue);\nconst wired = [];\nfor (const a of dueAgents) {\n  for (const m of mapRows.filter(m => m.agent_slug === a.slug)) {\n    wired.push({ agent_slug: a.slug, agent_id: a.id, n8n_workflow_id: m.workflow_id, workflow_name: m.workflow_name,\n      orchestrator_run_id: $('Create Run Context').first().json.orchestrator_run_id, dispatch_requested_at: now.toISOString() });\n  }\n}\nconst wiredSlugs = new Set(wired.map(w => w.agent_slug));\nconst unwired = [...new Set(dueAgents.filter(a => !wiredSlugs.has(a.slug)).map(a => a.slug))];\nreturn [{ json: { wired, unwired, dispatch_count: wired.length, any: wired.length + unwired.length } }];"
+        "jsCode": "const now = new Date();\nconst due = items.flatMap(i => Array.isArray(i.json) ? i.json : [i.json]).filter(a => a && a.slug);\nconst mapRows = $('Get Dispatch Map').all().map(i => i.json).filter(m => m && m.workflow_id && m.agent_slug);\n\nfunction isDue(a) {\n  if (a.next_run_at) return new Date(a.next_run_at) <= now;\n  if (!a.last_run_at) return true;\n  const ageMinutes = (now - new Date(a.last_run_at)) / 60000;\n  switch (a.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\nconst dueAgents = due.filter(isDue);\nconst wired = [];\nfor (const a of dueAgents) {\n  for (const m of mapRows.filter(m => m.agent_slug === a.slug)) {\n    wired.push({ agent_slug: a.slug, agent_id: a.id, n8n_workflow_id: m.workflow_id, workflow_name: m.workflow_name,\n      orchestrator_run_id: $('Create Orchestrator Run').first().json.id, dispatch_requested_at: now.toISOString() });\n  }\n}\nconst wiredSlugs = new Set(wired.map(w => w.agent_slug));\nconst unwired = [...new Set(dueAgents.filter(a => !wiredSlugs.has(a.slug)).map(a => a.slug))];\nreturn [{ json: { wired, unwired, dispatch_count: wired.length, any: wired.length + unwired.length } }];"
       },
       "id": "filter-due-agents",
       "name": "Filter Due Agents",
@@ -226,7 +226,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ event_type: 'orchestrator_dispatch', severity: 'info', source: 'orchestrator', payload: { dispatch_count: $json.dispatch_count, dispatched: $json.wired.map(a => a.agent_slug), unwired_due_agents: $json.unwired, orchestrator_run_id: $json.wired[0] ? $json.wired[0].orchestrator_run_id : null } }) }}"
+        "body": "={{ JSON.stringify({ event_type: 'orchestrator_dispatch', severity: 'info', source: 'orchestrator', payload: { dispatch_count: $('Summarize Dispatch').first().json.dispatch_count, dispatched: $('Summarize Dispatch').first().json.wired.map(a => a.agent_slug), unwired_due_agents: $('Summarize Dispatch').first().json.unwired, orchestrator_run_id: $('Create Orchestrator Run').first().json.id, correlation_id: $('Create Run Context').first().json.correlation_id } }) }}"
       },
       "id": "00-log",
       "name": "Log Orchestrator Event",
@@ -236,7 +236,8 @@
         900,
         120
       ],
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -277,6 +278,86 @@
         -1760,
         40
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ agent_id: null, status: 'running', input: { workflow: '00-growthos-orchestrator', source: $('Create Run Context').first().json.source, correlation_id: $('Create Run Context').first().json.correlation_id } }) }}"
+      },
+      "id": "00-create-orchestrator-run",
+      "name": "Create Orchestrator Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Create Orchestrator Run').first().json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { dispatch_count: $('Summarize Dispatch').first().json.dispatch_count, dispatched_workflows: $('Summarize Dispatch').first().json.wired.map(a => a.workflow_name), unwired_due_agents: $('Summarize Dispatch').first().json.unwired } }) }}"
+      },
+      "id": "00-complete-orchestrator-run",
+      "name": "Complete Orchestrator Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        160
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -306,12 +387,7 @@
       "main": [
         [
           {
-            "node": "Get Active Agents",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get Dispatch Map",
+            "node": "Create Orchestrator Run",
             "type": "main",
             "index": 0
           }
@@ -366,7 +442,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Complete Orchestrator Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Explode Wired Agents": {
@@ -385,6 +467,39 @@
         [
           {
             "node": "Create Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Orchestrator Run": {
+      "main": [
+        [
+          {
+            "node": "Get Dispatch Map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dispatch Map": {
+      "main": [
+        [
+          {
+            "node": "Get Active Agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Orchestrator Event": {
+      "main": [
+        [
+          {
+            "node": "Complete Orchestrator Run",
             "type": "main",
             "index": 0
           }
