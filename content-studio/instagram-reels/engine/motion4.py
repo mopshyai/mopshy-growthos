@@ -6,6 +6,7 @@ import motion as M
 import motion3 as M3
 import widgets
 import ui2  # noqa: F401  (redesigned tracker/timeline)
+import fx2
 from motion import W, H, FPS, ORANGE, WHITE, BG, heavy, medium, ease_out, ease_back
 
 SR = 44100
@@ -28,8 +29,10 @@ def emoji_sprite(ch, size=200):
 
 class Line:
     """One voiced line: its audio, word timings, shots and overlays."""
-    def __init__(self, say, vo, shots, hi=(), head=None, tracker=None, timeline=None, emoji=None, screen=None, widget=None):
-        self.widget = widget
+    def __init__(self, say, vo, shots, hi=(), head=None, tracker=None, timeline=None, emoji=None, screen=None, widget=None, tag=None, bubble=None, chapter=None, **extra):
+        self.widget, self.tag, self.bubble, self.chapter = widget, tag, bubble, chapter
+        for k, v in extra.items():
+            setattr(self, k, v)
         self.say, self.shots, self.hi = say, shots, set(w.lower() for w in hi)
         self.head, self.tracker, self.timeline, self.emoji, self.screen = head, tracker, timeline, emoji, screen
         self.audio = load_audio(vo + ".mp3")
@@ -123,6 +126,14 @@ class ScreenStub:
         self.page = Image.open(spec["image"]).convert("RGB")
         self.url, self.box_a, self.box_b, self.cursor = spec["url"], spec["a"], spec["b"], spec.get("cursor")
         self.win_top, self.dur = 300, dur
+
+
+def _fx2_captions(im, ln, t):
+    fx2.draw_captions(im, ln, t, cy=1310 if ln.screen else (1110 if ln.timeline else 1030))
+
+
+CAPTION_FN = _fx2_captions  # karaoke captions by default; set to None for the older word-pop style
+OVERLAY = None  # optional per-frame hook: (frame, line, t, global_t, total)
 
 
 def render(lines, out_mp4, cover_path, music_path, work):
@@ -256,8 +267,12 @@ def render(lines, out_mp4, cover_path, music_path, work):
                         widgets.draw_widget(im, ln.widget, t, 680, ln.head_bottom + 430, 0.95)
                     else:
                         widgets.draw_widget(im, ln.widget.split(':')[0], t, 250 if ln.widget.endswith(':left') else 718, 640, 0.70)
+                if OVERLAY is not None:
+                    OVERLAY(im, ln, t, st + t, total)
                 # word-pop captions (skipped while the hook headline carries the words)
-                if not ln.head_items:
+                if CAPTION_FN is not None and not ln.head_items:
+                    CAPTION_FN(im, ln, t)
+                elif not ln.head_items:
                     cur = None
                     for (cs, words) in ln.chunks:
                         if t >= cs - 0.03:
