@@ -23,6 +23,43 @@ These rules come from four rounds of founder feedback. Static text cards and a c
 
 Never use: mascots or cartoon characters, static text-card reels, client logos without written permission, invented metrics, or stock clips with distracting on-screen text (e.g. a phone showing a bank fraud alert).
 
+## Realistic UI (v2, approved 2026-10-31)
+
+`engine/fx2.py` sets every overlay in Apple's SF Pro system font and copies real phone UI, with no third-party app logos.
+
+| Element | What it looks like | Function |
+|---|---|---|
+| Captions (default for all reels) | Karaoke style. Each word pops in as it's spoken, the current word sits on an orange box, key words are orange, soft shadow. | `draw_captions` |
+| iPhone | Titanium frame, Dynamic Island, side buttons. Springs in with a tilt. | `draw_phone(kind="lock" or "inbox")` |
+| Lock screen | Big clock, then a Mail-style notification drops in with a buzz shake and vibration lines | `draw_phone("lock", notif=(title, body))` |
+| Shared inbox | Mail-style list, unread row highlighted, orange "Unassigned" tag, "Unread for N hours" counter ticking up | `draw_phone("inbox", rows=[…], hours=N)` |
+| Text message | iMessage grey bubble. Typing dots first, then the message, then "Delivered". | `draw_bubble((who, text))` |
+| Name tag | Broadcast lower-third: orange bar drops, white card wipes in, name slides up | `draw_tag((name, role))` |
+| Checklist | Reminders-style card whose checkmarks draw themselves and whose counter ticks | `draw_checklist(title, items)` |
+| Chapter card | Cinematic letterbox bars, kicker line, big title, orange underline | `draw_chapter(text, kicker=…)` |
+| Progress bar | Thin bar with a glowing head | `draw_progress(frac)` |
+
+## Story series: "Agency Rescue"
+
+Daily 60–90s episodes about a composite independent agency, labelled "Illustrative story · composite agency" for the first 5 seconds and in the caption. No invented results, ever.
+
+- **Cast:** Dana (owner), Raj (producer) and Maria (CSR) all come from one cottonbro studio shoot on Pexels, so the faces stay consistent. The customer is a landscaper. The clip IDs are in `fetch_assets.sh`.
+- **Episode shape:**
+  - 0–3s: cold open, mid-scene.
+  - Then: who it is and what's at stake, and how it gets worse.
+  - "THE FIX": chapter card plus checklist.
+  - Then: the lesson.
+  - "UP NEXT": the cliffhanger.
+  - Last: the logo end card with COMMENT KEYWORD.
+- **Voice:** `vo_story.py` (AndrewNeural +6%, calmer than the reels' +14%).
+- **Build an episode:** copy `ep1.py`. Each line takes the usual fields, plus `phone` ("lock" or "inbox"), `bubble`, `tag`, `checklist` and `chapter`. `series.StingCard` opens the episode and `EndCard` closes it.
+
+```bash
+python3 ep1.py jobs
+uv run --with edge-tts==7.3.1 python vo_story.py vo_ep1_jobs.json
+python3 ep1.py ./        # agency-rescue-ep01-the-455-quote.mp4
+```
+
 ## Process
 
 1. **Plan the week:** 4–5 posts, at least 3 of them reels, on one market track. The insurance and HVAC tracks never share prices, claims or proof.
@@ -58,7 +95,9 @@ End every reel with `EndCard("KEYWORD")`.
 
 | File | What it does |
 |---|---|
-| `motion4.py` | Fast-cut renderer: b-roll streaming, zoom punches, word-pop captions, audio mix (voice + ducked music + SFX) |
+| `motion4.py` | Fast-cut renderer: b-roll streaming, zoom punches, captions (`CAPTION_FN`), per-frame `OVERLAY` hook, audio mix (voice + ducked music + SFX) |
+| `fx2.py` | Realistic UI v2 (see above) |
+| `series.py`, `ep1.py`, `vo_story.py` | Story-series sting, label, Episode 1 spec and story-pace voice |
 | `ui2.py` | Frosted step cards and checkmark timeline |
 | `widgets.py` | Phone screens used in hooks |
 | `endcard.py` | Animated vector logo end card with the keyword CTA |

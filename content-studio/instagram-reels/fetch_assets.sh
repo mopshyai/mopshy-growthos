@@ -12,6 +12,9 @@ clips=(
   smiling-call:8037831 thumbs-up:10373958 thinking:8731297 crumpled-paper:7581228
   receptionist:8467633 clock:11267667 irritated-look:8724356 excited:8724462
   team-celebrate:6395992 man-office-phone:7262260 woman-typing:7605074
+  # Agency Rescue cast: one cottonbro studio shoot (Dana, Raj, Maria) + the landscaper customer
+  dana-raj:8467629 dana-night-phone:8468759 dana-night-tired:8468761 dana-maria:8467948
+  landscaper-mower:12694264 landscaper-field:12694116
 )
 for pair in "${clips[@]}"; do
   name=${pair%%:*}; id=${pair##*:}; out="broll/$name-$id.mp4"
