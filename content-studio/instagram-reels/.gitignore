@@ -1,0 +1,10 @@
+# Licensed media is re-downloaded by fetch_assets.sh, never committed
+assets/broll/
+assets/music/
+assets/screens/
+engine/vo*/
+engine/out*/
+engine/*.wav
+*.mp4
+*.mp3
+__pycache__/

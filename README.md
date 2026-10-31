@@ -34,6 +34,9 @@ Continuously improve Mopshy's visibility, authority, qualified pipeline, and rev
 
 All 16 agents have n8n workflows in `n8n/` (see `docs/N8N_WORKFLOWS.md` for the registry, schedules, and credentials).
 
+## Content studio
+Instagram reel playbook and renderer, with the approved style, process and code: [`content-studio/instagram-reels/`](content-studio/instagram-reels/README.md). It's a draft-only tool and never posts.
+
 ## Principles
 1. Evidence before action.
 2. Human approval for consequential writes.
