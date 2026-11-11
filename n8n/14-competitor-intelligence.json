@@ -224,7 +224,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol',, tools: [{ type: 'web_search' }], input: `You are Mopshy's competitive intelligence analyst. Research ${$json.name} (${$json.domain}) for changes in the last 14 days: product announcements, pricing or packaging changes, new content or SEO plays, partnerships, funding. Use CURRENT web search. Only report what you actually find; never speculate. Return ONLY JSON: {events:[{event_type, summary, source_url, impact_score: 0-100}]}. If nothing notable, return an empty events array.` }) }}",
+        "body": "={{ JSON.stringify({ model: 'gpt-5.6-sol', tools: [{ type: 'web_search' }], input: `You are Mopshy's competitive intelligence analyst. Research ${$json.name} (${$json.domain}) for changes in the last 14 days: product announcements, pricing or packaging changes, new content or SEO plays, partnerships, funding. Use CURRENT web search. Only report what you actually find; never speculate. Return ONLY JSON: {events:[{event_type, summary, source_url, impact_score: 0-100}]}. If nothing notable, return an empty events array.` }) }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openAiApi",
         "options": {
@@ -291,7 +291,8 @@
         1400,
         -80
       ],
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -321,7 +322,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($('Build Run Summary').first().json.event_inserts) }}"
+        "body": "={{ JSON.stringify($('Filter Duplicate Events').first().json.event_inserts) }}"
       },
       "id": "cabcf4e4-0ed7-54f9-9082-4d46dbdc7c46",
       "name": "Insert Competitor Events",
@@ -334,7 +335,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return $('Build Run Summary').first().json.tasks.map(t => ({ json: t }));"
+        "jsCode": "return $('Filter Duplicate Events').first().json.tasks.map(t => ({ json: t }));"
       },
       "id": "65398eba-2186-5711-8263-ffd3e8382b22",
       "name": "Explode Competitor Tasks",
@@ -496,6 +497,101 @@
         3880,
         -80
       ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/competitor_events?select=competitor_id,source_url&order=captured_at.desc&limit=300' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "14-get-events",
+      "name": "Get Recent Competitor Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        -240
+      ],
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Idempotency: drop events whose (competitor_id, source_url) was already\n// recorded, so a retried run cannot double-log the same competitor event.\nconst seen = new Set(items.map(i => i.json && (i.json.competitor_id + '|' + i.json.source_url)).filter(s => !s.endsWith('|') && !s.startsWith('|')));\nconst build = $('Build Run Summary').first().json;\nconst events = (build.event_inserts || []).filter(e => !seen.has(e.competitor_id + '|' + e.source_url));\nreturn [{ json: { event_inserts: events, tasks: build.tasks || [] } }];"
+      },
+      "id": "14-filter-events",
+      "name": "Filter Duplicate Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        -240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "14-subflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1720,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($env.GROWTHOS_PAUSED === undefined || String($env.GROWTHOS_PAUSED) === 'true' || String($env.GROWTHOS_PAUSED) === '') && $execution.mode === 'production' }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "14-pause-gate",
+      "name": "GrowthOS Paused?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "14-paused-skip",
+      "name": "Paused (Skipped)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1480,
+        320
+      ]
     }
   ],
   "connections": {
@@ -525,7 +621,7 @@
       "main": [
         [
           {
-            "node": "Get Agent",
+            "node": "GrowthOS Paused?",
             "type": "main",
             "index": 0
           }
@@ -658,12 +754,7 @@
       "main": [
         [
           {
-            "node": "Insert Competitor Events",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Explode Competitor Tasks",
+            "node": "Get Recent Competitor Events",
             "type": "main",
             "index": 0
           }
@@ -697,6 +788,62 @@
         [
           {
             "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Competitor Events": {
+      "main": [
+        [
+          {
+            "node": "Filter Duplicate Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Duplicate Events": {
+      "main": [
+        [
+          {
+            "node": "Insert Competitor Events",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Explode Competitor Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GrowthOS Paused?": {
+      "main": [
+        [
+          {
+            "node": "Paused (Skipped)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Agent",
             "type": "main",
             "index": 0
           }

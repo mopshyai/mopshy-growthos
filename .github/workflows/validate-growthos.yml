@@ -1,0 +1,36 @@
+name: Validate GrowthOS
+
+on:
+  pull_request:
+    paths:
+      - "n8n/**"
+      - "config/**"
+      - "supabase/migrations/**"
+      - "scripts/validate-workflows.mjs"
+      - "package.json"
+      - ".github/workflows/validate-growthos.yml"
+  push:
+    branches:
+      - main
+      - "feat/**"
+    paths:
+      - "n8n/**"
+      - "config/**"
+      - "supabase/migrations/**"
+      - "scripts/validate-workflows.mjs"
+      - "package.json"
+      - ".github/workflows/validate-growthos.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate GrowthOS workflows
+        run: npm run validate:growthos
