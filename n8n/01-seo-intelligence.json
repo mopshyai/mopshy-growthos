@@ -45,13 +45,25 @@
             {
               "id": "site-url",
               "name": "site_url",
-              "value": "={{ $env.GSC_SITE_URL || 'https://mopshy.com/' }}",
+              "value": "https://mopshy.com/",
               "type": "string"
             },
             {
               "id": "run-mode",
               "name": "run_mode",
               "value": "manual",
+              "type": "string"
+            },
+            {
+              "id": "supabase-url",
+              "name": "supabase_url",
+              "value": "https://YOUR-PROJECT-REF.supabase.co",
+              "type": "string"
+            },
+            {
+              "id": "ga4-property-id",
+              "name": "ga4_property_id",
+              "value": "",
               "type": "string"
             }
           ]
@@ -82,21 +94,10 @@
     },
     {
       "parameters": {
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?slug=eq.seo-intelligence&select=id,name,slug,autonomy,schedule&limit=1' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            }
-          ]
-        },
-        "options": {}
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/agents?slug=eq.seo-intelligence&select=id,name,slug,autonomy,schedule&limit=1' }}",
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "get-seo-agent",
       "name": "Get SEO Agent",
@@ -105,7 +106,13 @@
       "position": [
         -760,
         -80
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
@@ -123,18 +130,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs' }}",
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/agent_runs' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -149,7 +148,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ agent_id: $('Validate SEO Agent').first().json.id, status: 'running', input: { agent_slug: $('Run Config').first().json.agent_slug, site_url: $('Run Config').first().json.site_url, run_mode: $('Run Config').first().json.run_mode, window_days: 28 } }) }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "create-run",
       "name": "Create Agent Run",
@@ -158,7 +159,13 @@
       "position": [
         -280,
         -80
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
@@ -330,7 +337,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $env.GA4_PROPERTY_ID }}",
+              "leftValue": "={{ $('Run Config').item.json.ga4_property_id }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
@@ -355,7 +362,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ 'https://analyticsdata.googleapis.com/v1beta/properties/' + $env.GA4_PROPERTY_ID + ':runReport' }}",
+        "url": "={{ 'https://analyticsdata.googleapis.com/v1beta/properties/' + $('Run Config').item.json.ga4_property_id + ':runReport' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "googleOAuth2Api",
         "sendHeaders": true,
@@ -485,18 +492,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/keywords?on_conflict=keyword' }}",
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/keywords?on_conflict=keyword' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -511,7 +510,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($('Analyze SEO Signals').first().json.keyword_upserts) }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "upsert-keywords",
       "name": "Upsert Keywords",
@@ -520,23 +521,21 @@
       "position": [
         1180,
         160
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/pages?on_conflict=url' }}",
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/pages?on_conflict=url' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -551,7 +550,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($('Analyze SEO Signals').first().json.page_upserts) }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "upsert-pages",
       "name": "Upsert Pages",
@@ -560,23 +561,21 @@
       "position": [
         1400,
         160
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/tasks' }}",
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/tasks' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -591,7 +590,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($('Analyze SEO Signals').first().json.tasks) }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "create-tasks",
       "name": "Create SEO Tasks",
@@ -600,23 +601,21 @@
       "position": [
         1620,
         160
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agent_runs?id=eq.' + $('Analyze SEO Signals').first().json.agent_run_id }}",
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/agent_runs?id=eq.' + $('Analyze SEO Signals').first().json.agent_run_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -631,7 +630,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ status: 'completed', completed_at: $now.toISO(), output: { summary: $('Analyze SEO Signals').first().json.summary }, tasks_created: $('Analyze SEO Signals').first().json.tasks.length }) }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "complete-run",
       "name": "Complete Agent Run",
@@ -640,23 +641,21 @@
       "position": [
         1840,
         160
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/agents?id=eq.' + $('Analyze SEO Signals').first().json.agent_id }}",
+        "url": "={{ $('Run Config').item.json.supabase_url + '/rest/v1/agents?id=eq.' + $('Analyze SEO Signals').first().json.agent_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "={{ 'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY }}"
-            },
             {
               "name": "Content-Type",
               "value": "application/json"
@@ -671,7 +670,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({ last_run_at: $now.toISO(), error_count: 0 }) }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "update-agent",
       "name": "Update Agent Last Run",
@@ -680,7 +681,13 @@
       "position": [
         2060,
         160
-      ]
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "",
+          "name": "Supabase account"
+        }
+      }
     },
     {
       "parameters": {
