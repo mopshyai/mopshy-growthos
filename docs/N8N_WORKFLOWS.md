@@ -62,8 +62,18 @@ No agent workflow should write to external systems without checking autonomy/app
 
 ## Conventions
 
-- **Supabase access:** every workflow calls the REST API with `$env.SUPABASE_URL` +
-  `$env.SUPABASE_SERVICE_ROLE_KEY` (apikey + Authorization headers). No hardcoded project URLs, no per-workflow Supabase credentials.
+- **Supabase access (n8n Cloud supported path):** REST nodes authenticate with the
+  workspace's `Supabase account` credential (`authentication: predefinedCredentialType`,
+  `nodeCredentialType: supabaseApi`) so the service-role key stays in the n8n credential
+  store. The non-secret project URL lives in a plain workflow config field
+  (`Run Config` node's `supabase_url` in 01; inline placeholder in 00) -
+  replace `https://YOUR-PROJECT-REF.supabase.co` with the real project URL after import.
+  Never put the service key in plain fields, n8n Variables, or `$env`.
+  `$env` is self-hosted-only in n8n
+  (docs.n8n.io/build/code-in-n8n/use-built-in-shortcuts/n8n-metadata), so the older
+  `$env.SUPABASE_URL`/`$env.SUPABASE_SERVICE_ROLE_KEY` pattern fails on n8n Cloud.
+  Converted so far: 00, 01 (guarded by `tests/supabase-credential-config.test.js`).
+  Pending the same conversion: 02-17, 99.
 - **Run lifecycle:** every agent looks up its `agents` row by slug, creates an
   `agent_runs` row, completes it with an output summary, and updates
   `agents.last_run_at`. Every recommendation becomes a `tasks` record, deduped against open tasks of the same type.
