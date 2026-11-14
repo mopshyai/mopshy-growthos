@@ -79,7 +79,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst rows = items.flatMap(item => Array.isArray(item.json) ? item.json : [item.json]);\n\nfunction due(agent) {\n  if (agent.next_run_at) return new Date(agent.next_run_at) <= now;\n  if (!agent.last_run_at) return true;\n  const last = new Date(agent.last_run_at);\n  const ageMinutes = (now - last) / 60000;\n  switch (agent.schedule) {\n    case 'hourly': return ageMinutes >= 60;\n    case 'daily': return ageMinutes >= 1440;\n    case 'weekly': return ageMinutes >= 10080;\n    case 'on-demand': return false;\n    default: return false;\n  }\n}\n\nreturn rows.filter(due).map(agent => ({ json: { ...agent, dispatch_requested_at: now.toISOString() } }));"
+        "jsCode": "const now = new Date();\nconst rows = items.flatMap(item => Array.isArray(item.json) ? item.json : [item.json]);\n\n// Schedule precedence (2026-11-13 repair):\n// 1. A valid next_run_at governs: due iff it is in the past. An INVALID\n//    next_run_at is a data error: never due, flagged for review.\n// 2. 'on-demand' agents are never auto-due - even when they have never run.\n//    (Pre-repair behavior dispatched ANY never-run agent, including on-demand.)\n// 3. Unknown schedules are never auto-due (conservative; logged via flag).\n// 4. Never-run agents with a known auto schedule are due once (bootstrap).\n// 5. Otherwise age-based on last_run_at per schedule.\nconst MINUTES = { hourly: 60, daily: 1440, weekly: 10080 };\n\nfunction due(agent) {\n  const out = { ...agent, dispatch_requested_at: now.toISOString() };\n  if (agent.next_run_at) {\n    const next = new Date(agent.next_run_at);\n    if (isNaN(next)) { out.invalid_next_run_at = agent.next_run_at; out._due = false; return out; }\n    out._due = next <= now; return out;\n  }\n  if (!Object.prototype.hasOwnProperty.call(MINUTES, agent.schedule)) {\n    out.skipped_schedule = agent.schedule;  // on-demand or unknown: never auto-due\n    out._due = false; return out;\n  }\n  if (!agent.last_run_at) { out._due = true; return out; }  // bootstrap\n  const last = new Date(agent.last_run_at);\n  if (isNaN(last)) { out.invalid_last_run_at = agent.last_run_at; out._due = false; return out; }\n  out._due = (now - last) / 60000 >= MINUTES[agent.schedule];\n  return out;\n}\n\nreturn rows.map(due).filter(r => r._due).map(({ _due, ...rest }) => ({ json: rest }));\n"
       },
       "id": "filter-due-agents",
       "name": "Filter Due Agents",
@@ -92,28 +92,12 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "dispatch-status",
-              "name": "dispatch_status",
-              "value": "ready",
-              "type": "string"
-            },
-            {
-              "id": "dispatch-note",
-              "name": "dispatch_note",
-              "value": "Connect this item to an Execute Workflow node mapped by agent slug after the individual agent workflows are imported.",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "// Build Dispatch Plan (2026-11-13): converts due agents into explicit,\n// fail-closed dispatch decisions. This node EXECUTES NOTHING: actual\n// Execute Workflow wiring is a later gated step that needs live workflow IDs.\n// Contracts implemented here:\n// 1. Autonomy gate (fail closed): green -> DISPATCH_PENDING only when the\n//    workflow is mapped AND imported (live_workflow_id set). yellow ->\n//    APPROVAL_REQUIRED (never auto-dispatched; approval persistence/queue is\n//    M3 design work). red -> BLOCKED (manual only). Missing/unknown\n//    autonomy -> BLOCKED (fail closed, never silently dispatched).\n// 2. Deterministic run_key per (slug, schedule window) = idempotency key for\n//    the future agent_runs claim upsert (unique index = M3 schema work).\n//    A retried orchestrator run in the same window yields the same run_key,\n//    so the claim is replay-safe once the unique index exists.\n// 3. Unmapped slugs -> BLOCKED 'unmapped_slug' (reported, never skipped).\n// DISPATCH_MAP_START (synced from config/dispatch-map.json; tests/dispatch-plan.test.js asserts equality)\nconst DISPATCH_MAP = {\n  \"seo-intelligence\": {\n    \"workflow_file\": \"n8n/01-seo-intelligence.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"search-opportunity\": {\n    \"workflow_file\": \"n8n/02-content-opportunity-agent.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"content-research\": {\n    \"workflow_file\": \"n8n/06-content-research.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"content-production\": {\n    \"workflow_file\": \"n8n/03-content-writer-qa-agent.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"content-publisher\": {\n    \"workflow_file\": \"n8n/04-content-github-publisher.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"content-performance\": {\n    \"workflow_file\": \"n8n/05-content-performance-agent.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"internal-linking\": {\n    \"workflow_file\": \"n8n/07-internal-linking.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"technical-seo\": {\n    \"workflow_file\": \"n8n/08-technical-seo.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"citation-engine\": {\n    \"workflow_file\": \"n8n/09-citation-engine.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"backlink-intelligence\": {\n    \"workflow_file\": \"n8n/10-backlink-intelligence.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"founder-content\": {\n    \"workflow_file\": \"n8n/11-founder-content.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"social-distribution\": {\n    \"workflow_file\": \"n8n/12-social-distribution.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"cro-intelligence\": {\n    \"workflow_file\": \"n8n/13-cro-intelligence.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"competitor-intelligence\": {\n    \"workflow_file\": \"n8n/14-competitor-intelligence.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"reputation-intelligence\": {\n    \"workflow_file\": \"n8n/15-reputation-intelligence.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"lead-intent\": {\n    \"workflow_file\": \"n8n/16-lead-intent.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  },\n  \"growth-director\": {\n    \"workflow_file\": \"n8n/17-growth-director.json\",\n    \"live_workflow_id\": null,\n    \"imported\": false\n  }\n};\n// DISPATCH_MAP_END\nfunction isoWeek(d) {\n  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));\n  const day = (t.getUTCDay() + 6) % 7; // Mon=0\n  t.setUTCDate(t.getUTCDate() - day + 3); // Thursday of this ISO week\n  const first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));\n  const fd = (first.getUTCDay() + 6) % 7;\n  first.setUTCDate(first.getUTCDate() - fd + 3);\n  const week = 1 + Math.round((t - first) / 6048e5);\n  return `${t.getUTCFullYear()}-W${String(week).padStart(2, \"0\")}`;\n}\nconst WINDOWS = {\n  hourly: (d) => d.toISOString().slice(0, 13),   // YYYY-MM-DDTHH\n  daily: (d) => d.toISOString().slice(0, 10),    // YYYY-MM-DD\n  weekly: (d) => isoWeek(d),                     // YYYY-Www (ISO 8601)\n};\n\nconst rows = items.flatMap((i) => (Array.isArray(i.json) ? i.json : [i.json]));\nreturn rows.map((a) => {\n  const at = new Date(a.dispatch_requested_at || Date.now());\n  const mapEntry = DISPATCH_MAP[a.slug];\n  const windowFn = WINDOWS[a.schedule];\n  const window = windowFn ? windowFn(at) : \"unscheduled\";\n  const base = {\n    slug: a.slug,\n    name: a.name || null,\n    autonomy: a.autonomy || null,\n    schedule: a.schedule || null,\n    run_key: `${a.slug}:${a.schedule}:${window}`,\n    dispatch_window: windowFn ? window : null,\n    dispatch_requested_at: a.dispatch_requested_at || at.toISOString(),\n    idempotency: \"run_key\",\n  };\n  if (!mapEntry) return { json: { ...base, decision: \"BLOCKED\", reason: \"unmapped_slug\" } };\n  base.workflow_file = mapEntry.workflow_file;\n  base.live_workflow_id = mapEntry.live_workflow_id;\n  if (a.autonomy === \"red\") return { json: { ...base, decision: \"BLOCKED\", reason: \"manual_only\" } };\n  if (a.autonomy === \"yellow\") return { json: { ...base, decision: \"APPROVAL_REQUIRED\", reason: \"autonomy_yellow\", approval_route: \"pending_approval_queue_design\" } };\n  if (a.autonomy !== \"green\") return { json: { ...base, decision: \"BLOCKED\", reason: \"unknown_autonomy\" } };\n  if (!mapEntry.live_workflow_id) return { json: { ...base, decision: \"BLOCKED\", reason: \"workflow_not_imported\" } };\n  return { json: { ...base, decision: \"DISPATCH_PENDING\", reason: \"ok\" } };\n});\n"
       },
-      "id": "dispatch-contract",
-      "name": "Dispatch Contract",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "id": "dispatch-plan",
+      "name": "Build Dispatch Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         180,
         0
@@ -158,7 +142,7 @@
       "main": [
         [
           {
-            "node": "Dispatch Contract",
+            "node": "Build Dispatch Plan",
             "type": "main",
             "index": 0
           }

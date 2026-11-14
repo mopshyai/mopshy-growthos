@@ -8,7 +8,7 @@ All 16 registered agents have workflows in `n8n/` (import into the `MOPSHY GROWT
 | `01-seo-intelligence.json` | SEO Intelligence v3 | `seo-intelligence` | green | daily 5:30 AM ET |
 | `02-content-opportunity-agent.json` | Autonomous Content Opportunity Agent | `search-opportunity` | green | daily 6:30 AM ET |
 | `03-content-writer-qa-agent.json` | Autonomous Content Writer + QA | `content-production` | yellow | daily 7:15 AM ET |
-| `04-content-github-publisher.json` | Guarded GitHub Blog Publisher | `content-production` | yellow | daily 8:00 AM ET |
+| `04-content-github-publisher.json` | Guarded GitHub Blog Publisher | `content-publisher` | yellow | daily 8:00 AM ET |
 | `05-content-performance-agent.json` | Content Performance Agent | `content-performance` | green | daily 8:30 AM ET |
 | `06-content-research.json` | Content Research Agent | `content-research` | green | daily 7:00 AM ET |
 | `07-internal-linking.json` | Internal Linking Agent | `internal-linking` | yellow | daily 5:45 AM ET |
