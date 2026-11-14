@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "generated": "2026-11-13",
+  "notes": "Slug -> workflow dispatch map for 00 - GrowthOS Orchestrator's Build Dispatch Plan node. live_workflow_id is null until the workflow is imported into the n8n Cloud MOPSHY GROWTHOS project (gated). The same object is embedded in the workflow's jsCode between DISPATCH_MAP_START/END markers; tests/dispatch-plan.test.js asserts they stay equal.",
+  "map": {
+    "seo-intelligence": {
+      "workflow_file": "n8n/01-seo-intelligence.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "search-opportunity": {
+      "workflow_file": "n8n/02-content-opportunity-agent.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "content-research": {
+      "workflow_file": "n8n/06-content-research.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "content-production": {
+      "workflow_file": "n8n/03-content-writer-qa-agent.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "content-publisher": {
+      "workflow_file": "n8n/04-content-github-publisher.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "content-performance": {
+      "workflow_file": "n8n/05-content-performance-agent.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "internal-linking": {
+      "workflow_file": "n8n/07-internal-linking.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "technical-seo": {
+      "workflow_file": "n8n/08-technical-seo.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "citation-engine": {
+      "workflow_file": "n8n/09-citation-engine.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "backlink-intelligence": {
+      "workflow_file": "n8n/10-backlink-intelligence.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "founder-content": {
+      "workflow_file": "n8n/11-founder-content.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "social-distribution": {
+      "workflow_file": "n8n/12-social-distribution.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "cro-intelligence": {
+      "workflow_file": "n8n/13-cro-intelligence.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "competitor-intelligence": {
+      "workflow_file": "n8n/14-competitor-intelligence.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "reputation-intelligence": {
+      "workflow_file": "n8n/15-reputation-intelligence.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "lead-intent": {
+      "workflow_file": "n8n/16-lead-intent.json",
+      "live_workflow_id": null,
+      "imported": false
+    },
+    "growth-director": {
+      "workflow_file": "n8n/17-growth-director.json",
+      "live_workflow_id": null,
+      "imported": false
+    }
+  }
+}
