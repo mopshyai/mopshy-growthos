@@ -28,9 +28,14 @@ for (const rel of CONVERTED) {
     assert.ok(!strings.some((s) => s.includes(banned)), `${rel} still references ${banned}`);
   }
 
-  // 2. No service-key-shaped material anywhere in the workflow file.
+  // 2. Generic secret-shape scan: JWT-shaped tokens (Supabase service keys are
+  // JWTs), OpenAI-style sk- keys, Bearer-from-$env, and the real project ref.
+  // This is a heuristic guard, not proof the file is secret-free - a value that
+  // matches none of these shapes could still be sensitive.
   assert.ok(!strings.some((s) => /Bearer\s+\$env/.test(s)), `${rel} builds a Bearer header from $env`);
   assert.ok(!strings.some((s) => s.includes("ftchgfwahjeqbyilsmjn")), `${rel} hardcodes the real project ref (use the placeholder)`);
+  assert.ok(!strings.some((s) => /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/.test(s)), `${rel} contains a JWT-shaped value`);
+  assert.ok(!strings.some((s) => /sk-[A-Za-z0-9_-]{16,}/.test(s)), `${rel} contains an sk- API-key-shaped value`);
 
   // 3. Every Supabase REST node uses the credential, not manual auth headers.
   for (const node of wf.nodes) {
